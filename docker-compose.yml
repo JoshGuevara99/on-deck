@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ondeck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ondeck}
+      POSTGRES_DB: ${POSTGRES_DB:-ondeck}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ondeck}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondeck}:${POSTGRES_PASSWORD:-ondeck}@postgres:5432/${POSTGRES_DB:-ondeck}
+      PORT: ${PORT:-3000}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      NODE_ENV: production
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

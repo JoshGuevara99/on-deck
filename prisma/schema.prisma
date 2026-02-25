@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id // Clerk user ID — never auto-generated
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hostedEvents Event[] @relation("HostedEvents")
+}
+
+model Venue {
+  id      String @id @default(cuid())
+  name    String
+  address String
+  city    String
+  state   String
+  lat     Float
+  lng     Float
+
+  events Event[]
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  venueId     String
+  hostId      String
+  title       String
+  description String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  type        EventType
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id])
+  host  User  @relation("HostedEvents", fields: [hostId], references: [id])
+}
+
+enum EventType {
+  OPEN_MIC
+  JAM_SESSION
+}

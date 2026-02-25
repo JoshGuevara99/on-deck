@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Expo
+.expo/
+expo-env.d.ts
+
+# Prisma
+prisma/migrations/*/migration_lock.toml
+
+# OS
+.DS_Store
+
+# Logs
+*.log

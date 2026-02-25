@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "On Deck",
+    "slug": "on-deck",
+    "version": "1.0.0",
+    "scheme": "ondeck",
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ondeck.app"
+    },
+    "android": {
+      "package": "com.ondeck.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
