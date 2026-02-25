@@ -7,6 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum EventType {
+  OPEN_MIC
+  JAM_SESSION
+  COMEDY_NIGHT
+  POETRY_SLAM
+  OPEN_STAGE
+  WORKSHOP
+  OPEN_STUDIO
+}
+
+enum SignUpMethod {
+  DOOR
+  ONLINE
+  APP
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
 model User {
   id        String   @id // Clerk user ID — never auto-generated
   email     String   @unique
@@ -14,38 +34,42 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  hostedEvents Event[] @relation("HostedEvents")
+  events Event[]
 }
 
 model Venue {
-  id      String @id @default(cuid())
-  name    String
-  address String
-  city    String
-  state   String
-  lat     Float
-  lng     Float
+  id           String  @id @default(cuid())
+  name         String
+  address      String
+  neighborhood String?
+  city         String
+  state        String
+  lat          Float?
+  lng          Float?
 
   events Event[]
 }
 
 model Event {
-  id          String    @id @default(cuid())
-  venueId     String
-  hostId      String
-  title       String
-  description String?
-  startsAt    DateTime
-  endsAt      DateTime?
-  type        EventType
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                   String       @id @default(cuid())
+  venueId              String
+  title                String
+  description          String?
+  startsAt             DateTime
+  endsAt               DateTime?
+  type                 EventType
+  genres               String[]
+  coverCharge          String?      // "Free", "$5", "$10 at door"
+  slotDuration         String?      // "5 min", "3 songs", "Open"
+  backline             String[]
+  signUpMethod         SignUpMethod  @default(DOOR)
+  isRecurring          Boolean      @default(false)
+  recurringDescription String?
+  submittedBy          String?      // optional Clerk user ID
+  isApproved           Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
-  venue Venue @relation(fields: [venueId], references: [id])
-  host  User  @relation("HostedEvents", fields: [hostId], references: [id])
-}
-
-enum EventType {
-  OPEN_MIC
-  JAM_SESSION
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  host  User? @relation(fields: [submittedBy], references: [id])
 }

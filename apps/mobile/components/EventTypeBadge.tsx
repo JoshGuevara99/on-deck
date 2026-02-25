@@ -5,11 +5,19 @@ import { useTheme } from '../context/ThemeContext';
 const LABELS: Record<EventType, string> = {
   OPEN_MIC: 'Open Mic',
   JAM_SESSION: 'Jam Session',
+  COMEDY_NIGHT: 'Comedy Night',
+  POETRY_SLAM: 'Poetry Slam',
+  OPEN_STAGE: 'Open Stage',
+  WORKSHOP: 'Workshop',
+  OPEN_STUDIO: 'Open Studio',
 };
+
+// Gold = performance/music types, Jam = everything else
+const GOLD_TYPES = new Set<EventType>(['OPEN_MIC', 'JAM_SESSION', 'OPEN_STAGE']);
 
 export function EventTypeBadge({ type }: { type: EventType }) {
   const { colors } = useTheme();
-  const accentColor = type === 'OPEN_MIC' ? colors.gold : colors.jam;
+  const accentColor = GOLD_TYPES.has(type) ? colors.gold : colors.jam;
 
   return (
     <View style={[styles.badge, { borderColor: accentColor }]}>

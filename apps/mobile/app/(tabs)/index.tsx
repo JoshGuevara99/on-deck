@@ -8,6 +8,7 @@ import {
   StatusBar,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,16 +24,20 @@ import type { EventType } from '@on-deck/shared';
 type Filter = 'all' | EventType;
 
 const FILTERS: { label: string; value: Filter }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Open Mic', value: 'OPEN_MIC' },
+  { label: 'All',         value: 'all' },
+  { label: 'Open Mic',    value: 'OPEN_MIC' },
   { label: 'Jam Session', value: 'JAM_SESSION' },
+  { label: 'Comedy',      value: 'COMEDY_NIGHT' },
+  { label: 'Poetry',      value: 'POETRY_SLAM' },
+  { label: 'Workshop',    value: 'WORKSHOP' },
+  { label: 'Open Studio', value: 'OPEN_STUDIO' },
 ];
 
 const INITIAL_EXTRA_FILTERS: ExtraFilters = { tonightOnly: false, freeOnly: false };
 
 export default function DiscoverScreen() {
   const { colors, theme } = useTheme();
-  const { events } = useEvents();
+  const { events, loading, error } = useEvents();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
@@ -76,6 +81,21 @@ export default function DiscoverScreen() {
         barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={colors.bg}
       />
+
+      {/* ── Loading overlay ────────────────────────────── */}
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.gold} />
+        </View>
+      )}
+
+      {/* ── Offline / error banner ──────────────────────── */}
+      {!loading && error && (
+        <View style={[styles.errorBanner, { backgroundColor: `${colors.jam}18`, borderColor: colors.jam }]}>
+          <Ionicons name="cloud-offline-outline" size={14} color={colors.jam} />
+          <Text style={[styles.errorBannerText, { color: colors.jam }]}>{error}</Text>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scroll}
@@ -334,6 +354,30 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       fontSize: 14,
       fontWeight: '600',
       color: colors.textSecondary,
+    },
+    loadingOverlay: {
+      position: 'absolute',
+      top: 80,
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    errorBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginHorizontal: 16,
+      marginTop: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+    },
+    errorBannerText: {
+      fontSize: 12,
+      fontWeight: '500',
+      flex: 1,
     },
   });
 }

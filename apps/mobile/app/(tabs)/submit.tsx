@@ -7,6 +7,7 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  ActivityIndicator,
   useWindowDimensions,
   StatusBar,
 } from 'react-native';
@@ -14,8 +15,20 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useEvents } from '../../context/EventsContext';
-import type { EventType } from '@on-deck/shared';
+import type { EventType, CreateEventInput } from '@on-deck/shared';
 import type { MockEvent } from '../../constants/mock-data';
+
+const GOLD_TYPES = new Set<EventType>(['OPEN_MIC', 'JAM_SESSION', 'OPEN_STAGE']);
+
+const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
+  { value: 'OPEN_MIC',     label: 'Open Mic' },
+  { value: 'JAM_SESSION',  label: 'Jam Session' },
+  { value: 'COMEDY_NIGHT', label: 'Comedy Night' },
+  { value: 'POETRY_SLAM',  label: 'Poetry Slam' },
+  { value: 'OPEN_STAGE',   label: 'Open Stage' },
+  { value: 'WORKSHOP',     label: 'Workshop' },
+  { value: 'OPEN_STUDIO',  label: 'Open Studio' },
+];
 
 interface FormState {
   title: string;
@@ -61,40 +74,38 @@ function validate(form: FormState): FormErrors {
   return errors;
 }
 
-/** Try to build a Date from free-text date + time strings. Falls back to tonight at 8 PM. */
-function parseStartsAt(dateStr: string, timeStr: string): Date {
+/** Convert free-text date + time into an ISO-8601 string. Falls back to tonight at 8 PM. */
+function toIso(dateStr: string, timeStr: string): string {
   const combined = `${dateStr} ${timeStr}`;
   const parsed = new Date(combined);
-  if (!isNaN(parsed.getTime())) return parsed;
+  if (!isNaN(parsed.getTime())) return parsed.toISOString();
 
-  // Fall back: today at 8 PM so the event shows up under "Tonight"
   const fallback = new Date();
   fallback.setHours(20, 0, 0, 0);
-  return fallback;
+  return fallback.toISOString();
 }
 
-function buildEvent(eventType: EventType, form: FormState): MockEvent {
+function buildCreateInput(eventType: EventType, form: FormState): CreateEventInput {
+  const isRecurring = /every/i.test(form.date);
   return {
-    id: `user-${Date.now()}`,
     title: form.title.trim(),
     type: eventType,
-    startsAt: parseStartsAt(form.date, form.startTime),
+    startsAt: toIso(form.date, form.startTime),
+    description: form.description.trim() || undefined,
+    genres: [],
+    coverCharge: form.coverCharge.trim() || 'Free',
+    slotDuration: form.slotDuration.trim() || undefined,
+    backline: form.backline.trim() ? [form.backline.trim()] : [],
+    signUpMethod: 'DOOR',
+    isRecurring,
+    recurringDescription: isRecurring ? form.date.trim() : undefined,
     venue: {
-      id: `venue-${Date.now()}`,
       name: form.venueName.trim(),
       address: form.address.trim(),
-      neighborhood: form.neighborhood.trim() || form.address.trim(),
+      neighborhood: form.neighborhood.trim() || undefined,
       city: 'Austin',
       state: 'TX',
     },
-    description: form.description.trim(),
-    genres: [],
-    isRecurring: /every/i.test(form.date),
-    recurringDescription: /every/i.test(form.date) ? form.date.trim() : undefined,
-    backline: form.backline.trim() ? [form.backline.trim()] : undefined,
-    coverCharge: form.coverCharge.trim() || 'Free',
-    slotDuration: form.slotDuration.trim() || undefined,
-    signUpMethod: 'door',
   };
 }
 
@@ -267,6 +278,8 @@ export default function SubmitScreen() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submittedEvent, setSubmittedEvent] = useState<MockEvent | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -275,16 +288,24 @@ export default function SubmitScreen() {
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   }, []);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const validationErrors = validate(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
-    const newEvent = buildEvent(eventType, form);
-    addEvent(newEvent);
-    setSubmittedEvent(newEvent);
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      const input = buildCreateInput(eventType, form);
+      const newEvent = await addEvent(input);
+      setSubmittedEvent(newEvent);
+    } catch (e) {
+      setSubmitError('Could not submit the event. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleSubmitAnother() {
@@ -324,14 +345,14 @@ export default function SubmitScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.heading}>Add an Event</Text>
-        <Text style={styles.sub}>Share an open mic or jam session with the community.</Text>
+        <Text style={styles.sub}>Share an open mic, jam session, comedy night, poetry slam, workshop, or open studio.</Text>
 
         {/* Event type */}
         <Label text="Event Type" colors={colors} />
-        <View style={styles.typeRow}>
-          {(['OPEN_MIC', 'JAM_SESSION'] as EventType[]).map((t) => {
+        <View style={styles.typeGrid}>
+          {(EVENT_TYPE_OPTIONS).map(({ value: t, label }) => {
             const active = eventType === t;
-            const accentColor = t === 'OPEN_MIC' ? colors.gold : colors.jam;
+            const accentColor = GOLD_TYPES.has(t) ? colors.gold : colors.jam;
             return (
               <TouchableOpacity
                 key={t}
@@ -345,7 +366,7 @@ export default function SubmitScreen() {
                 accessibilityState={{ checked: active }}
               >
                 <Text style={[styles.typeBtnText, active && { color: accentColor, fontWeight: '700' }]}>
-                  {t === 'OPEN_MIC' ? 'Open Mic' : 'Jam Session'}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
@@ -434,19 +455,28 @@ export default function SubmitScreen() {
           colors={colors}
         />
 
+        {submitError && (
+          <Text style={[styles.submitError, { color: colors.jam }]}>{submitError}</Text>
+        )}
+
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
           activeOpacity={0.85}
           onPress={handleSubmit}
+          disabled={submitting}
           accessibilityLabel="Submit event"
           accessibilityRole="button"
         >
-          <Text style={[styles.submitText, { color: colors.bg }]}>Submit Event</Text>
+          {submitting ? (
+            <ActivityIndicator color={colors.bg} />
+          ) : (
+            <Text style={[styles.submitText, { color: colors.bg }]}>Submit Event</Text>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
-          Submissions are reviewed before going live. Keep it real — no promoters, ticketed shows,
-          or venues you don't play.
+          Keep it real — open mics, jam sessions, comedy nights, poetry, art — no ticketed shows
+          or promoters.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -580,13 +610,14 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       lineHeight: 22,
       marginBottom: 4,
     },
-    typeRow: {
+    typeGrid: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: 10,
     },
     typeBtn: {
-      flex: 1,
-      paddingVertical: 13,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
       borderRadius: 12,
       backgroundColor: colors.surface,
       borderWidth: 1,
@@ -603,13 +634,22 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderRadius: 14,
       paddingVertical: 17,
       alignItems: 'center',
-      marginTop: 28,
+      marginTop: 16,
       marginBottom: 16,
+    },
+    submitBtnDisabled: {
+      opacity: 0.6,
     },
     submitText: {
       fontSize: 16,
       fontWeight: '800',
       letterSpacing: 0.5,
+    },
+    submitError: {
+      fontSize: 13,
+      textAlign: 'center',
+      marginBottom: 8,
+      marginTop: 12,
     },
     disclaimer: {
       fontSize: 12,
