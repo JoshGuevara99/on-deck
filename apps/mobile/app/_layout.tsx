@@ -1,10 +1,13 @@
 import { Stack } from 'expo-router';
 import { ThemeProvider } from '../context/ThemeContext';
+import { EventsProvider } from '../context/EventsContext';
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <EventsProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </EventsProvider>
     </ThemeProvider>
   );
 }

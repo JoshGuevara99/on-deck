@@ -9,15 +9,19 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   StatusBar,
-  Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useEvents } from '../../context/EventsContext';
 import type { EventType } from '@on-deck/shared';
+import type { MockEvent } from '../../constants/mock-data';
 
 interface FormState {
   title: string;
   venueName: string;
   address: string;
+  neighborhood: string;
   date: string;
   startTime: string;
   coverCharge: string;
@@ -38,6 +42,7 @@ const INITIAL_FORM: FormState = {
   title: '',
   venueName: '',
   address: '',
+  neighborhood: '',
   date: '',
   startTime: '',
   coverCharge: '',
@@ -56,21 +61,217 @@ function validate(form: FormState): FormErrors {
   return errors;
 }
 
+/** Try to build a Date from free-text date + time strings. Falls back to tonight at 8 PM. */
+function parseStartsAt(dateStr: string, timeStr: string): Date {
+  const combined = `${dateStr} ${timeStr}`;
+  const parsed = new Date(combined);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  // Fall back: today at 8 PM so the event shows up under "Tonight"
+  const fallback = new Date();
+  fallback.setHours(20, 0, 0, 0);
+  return fallback;
+}
+
+function buildEvent(eventType: EventType, form: FormState): MockEvent {
+  return {
+    id: `user-${Date.now()}`,
+    title: form.title.trim(),
+    type: eventType,
+    startsAt: parseStartsAt(form.date, form.startTime),
+    venue: {
+      id: `venue-${Date.now()}`,
+      name: form.venueName.trim(),
+      address: form.address.trim(),
+      neighborhood: form.neighborhood.trim() || form.address.trim(),
+      city: 'Austin',
+      state: 'TX',
+    },
+    description: form.description.trim(),
+    genres: [],
+    isRecurring: /every/i.test(form.date),
+    recurringDescription: /every/i.test(form.date) ? form.date.trim() : undefined,
+    backline: form.backline.trim() ? [form.backline.trim()] : undefined,
+    coverCharge: form.coverCharge.trim() || 'Free',
+    slotDuration: form.slotDuration.trim() || undefined,
+    signUpMethod: 'door',
+  };
+}
+
+// ─── Success screen ──────────────────────────────────────────────────────────
+
+interface SuccessProps {
+  event: MockEvent;
+  onSubmitAnother: () => void;
+  onGoToDiscover: () => void;
+}
+
+function SuccessScreen({ event, onSubmitAnother, onGoToDiscover }: SuccessProps) {
+  const { colors, theme } = useTheme();
+  const styles = useMemo(() => makeSuccessStyles(colors), [colors]);
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <StatusBar
+        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
+      <View style={styles.container}>
+        <View style={styles.iconCircle}>
+          <Ionicons name="checkmark-circle" size={64} color={colors.gold} />
+        </View>
+
+        <Text style={styles.heading}>Event Submitted!</Text>
+        <Text style={styles.sub}>
+          Your event has been added to Discover right away.
+        </Text>
+
+        <View style={styles.eventCard}>
+          <Text style={styles.eventTitle}>{event.title}</Text>
+          <View style={styles.eventMeta}>
+            <Ionicons name="location-sharp" size={13} color={colors.gold} />
+            <Text style={styles.eventVenue}>{event.venue.name}</Text>
+          </View>
+          <Text style={styles.eventType}>
+            {event.type === 'OPEN_MIC' ? 'Open Mic' : 'Jam Session'}
+            {event.coverCharge ? ` · ${event.coverCharge}` : ''}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.primaryBtn, { backgroundColor: colors.gold }]}
+          onPress={onGoToDiscover}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="View in Discover"
+        >
+          <Ionicons name="compass" size={18} color={colors.bg} />
+          <Text style={[styles.primaryBtnText, { color: colors.bg }]}>View in Discover</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryBtn, { borderColor: colors.border }]}
+          onPress={onSubmitAnother}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Submit another event"
+        >
+          <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
+            Submit another event
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function makeSuccessStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.bg },
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 32,
+      gap: 16,
+    },
+    iconCircle: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: `${colors.gold}18`,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    heading: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    sub: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    eventCard: {
+      width: '100%',
+      backgroundColor: colors.surfaceHigh,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 18,
+      gap: 6,
+      marginVertical: 8,
+    },
+    eventTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    eventMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    eventVenue: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+    eventType: {
+      fontSize: 13,
+      color: colors.textMuted,
+    },
+    primaryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      width: '100%',
+      paddingVertical: 16,
+      borderRadius: 14,
+      marginTop: 4,
+    },
+    primaryBtnText: {
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+    secondaryBtn: {
+      width: '100%',
+      paddingVertical: 15,
+      borderRadius: 14,
+      borderWidth: 1,
+      alignItems: 'center',
+    },
+    secondaryBtnText: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+  });
+}
+
+// ─── Submit form ─────────────────────────────────────────────────────────────
+
 export default function SubmitScreen() {
   const { colors, theme } = useTheme();
+  const { addEvent } = useEvents();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
   const [eventType, setEventType] = useState<EventType>('OPEN_MIC');
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedEvent, setSubmittedEvent] = useState<MockEvent | null>(null);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const setField = useCallback((key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-    // Clear error on edit
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   }, []);
 
@@ -78,30 +279,36 @@ export default function SubmitScreen() {
     const validationErrors = validate(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      Alert.alert(
-        'Missing required fields',
-        'Please fill in all required fields before submitting.',
-        [{ text: 'OK' }],
-      );
       return;
     }
 
-    // In production this would POST to the API
-    setSubmitted(true);
-    Alert.alert(
-      'Submission received!',
-      'Thanks for adding to the community. Your event will be reviewed and posted within 24 hours.',
-      [
-        {
-          text: 'Submit another',
-          onPress: () => {
-            setForm(INITIAL_FORM);
-            setErrors({});
-            setSubmitted(false);
-          },
-        },
-        { text: 'Done', style: 'default' },
-      ],
+    const newEvent = buildEvent(eventType, form);
+    addEvent(newEvent);
+    setSubmittedEvent(newEvent);
+  }
+
+  function handleSubmitAnother() {
+    setForm(INITIAL_FORM);
+    setErrors({});
+    setEventType('OPEN_MIC');
+    setSubmittedEvent(null);
+  }
+
+  function handleGoToDiscover() {
+    setForm(INITIAL_FORM);
+    setErrors({});
+    setEventType('OPEN_MIC');
+    setSubmittedEvent(null);
+    router.push('/(tabs)');
+  }
+
+  if (submittedEvent) {
+    return (
+      <SuccessScreen
+        event={submittedEvent}
+        onSubmitAnother={handleSubmitAnother}
+        onGoToDiscover={handleGoToDiscover}
+      />
     );
   }
 
@@ -173,6 +380,13 @@ export default function SubmitScreen() {
           colors={colors}
         />
         <Field
+          label="Neighborhood"
+          placeholder="e.g. South Congress"
+          value={form.neighborhood}
+          onChangeText={(v) => setField('neighborhood', v)}
+          colors={colors}
+        />
+        <Field
           label="Date"
           placeholder="e.g. Every Tuesday · or a specific date"
           value={form.date}
@@ -221,10 +435,9 @@ export default function SubmitScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.submitBtn, submitted && styles.submitBtnDisabled]}
+          style={styles.submitBtn}
           activeOpacity={0.85}
           onPress={handleSubmit}
-          disabled={submitted}
           accessibilityLabel="Submit event"
           accessibilityRole="button"
         >
@@ -392,9 +605,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       alignItems: 'center',
       marginTop: 28,
       marginBottom: 16,
-    },
-    submitBtnDisabled: {
-      opacity: 0.5,
     },
     submitText: {
       fontSize: 16,

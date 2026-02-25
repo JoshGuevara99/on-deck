@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { MOCK_EVENTS } from '../../constants/mock-data';
+import { useEvents } from '../../context/EventsContext';
 import { EventCard } from '../../components/EventCard';
 import { FilterChip } from '../../components/FilterChip';
 import { FilterModal, type ExtraFilters } from '../../components/FilterModal';
@@ -32,6 +32,7 @@ const INITIAL_EXTRA_FILTERS: ExtraFilters = { tonightOnly: false, freeOnly: fals
 
 export default function DiscoverScreen() {
   const { colors, theme } = useTheme();
+  const { events } = useEvents();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
@@ -46,7 +47,7 @@ export default function DiscoverScreen() {
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return MOCK_EVENTS.filter((e) => {
+    return events.filter((e) => {
       if (activeFilter !== 'all' && e.type !== activeFilter) return false;
       if (extraFilters.tonightOnly && !isTonight(e.startsAt)) return false;
       if (extraFilters.freeOnly && e.coverCharge !== 'Free') return false;
@@ -64,7 +65,7 @@ export default function DiscoverScreen() {
       }
       return true;
     });
-  }, [activeFilter, searchQuery, extraFilters]);
+  }, [events, activeFilter, searchQuery, extraFilters]);
 
   const tonight = useMemo(() => filtered.filter((e) => isTonight(e.startsAt)), [filtered]);
   const upcoming = useMemo(() => filtered.filter((e) => !isTonight(e.startsAt)), [filtered]);
