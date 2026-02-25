@@ -1,18 +1,20 @@
 import { View, Text, StyleSheet } from 'react-native';
 import type { EventType } from '@on-deck/shared';
-import { COLORS } from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 
-const CONFIG: Record<EventType, { label: string; color: string }> = {
-  OPEN_MIC: { label: 'Open Mic', color: COLORS.gold },
-  JAM_SESSION: { label: 'Jam Session', color: COLORS.jam },
+const LABELS: Record<EventType, string> = {
+  OPEN_MIC: 'Open Mic',
+  JAM_SESSION: 'Jam Session',
 };
 
 export function EventTypeBadge({ type }: { type: EventType }) {
-  const { label, color } = CONFIG[type];
+  const { colors } = useTheme();
+  const accentColor = type === 'OPEN_MIC' ? colors.gold : colors.jam;
+
   return (
-    <View style={[styles.badge, { borderColor: color }]}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.label, { color }]}>{label}</Text>
+    <View style={[styles.badge, { borderColor: accentColor }]}>
+      <View style={[styles.dot, { backgroundColor: accentColor }]} />
+      <Text style={[styles.label, { color: accentColor }]}>{LABELS[type]}</Text>
     </View>
   );
 }
