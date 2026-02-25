@@ -5,10 +5,22 @@ node_modules/
 dist/
 build/
 
-# Environment
+# Environment — never commit real credentials
 .env
 .env.local
 .env.*.local
+
+# Secret / credential files
+*.pem
+*.p12
+*.pfx
+*.key
+*.cert
+*.cer
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
 
 # Expo
 .expo/

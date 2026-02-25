@@ -1,0 +1,9 @@
+# ggshield configuration — tells GitGuardian which files contain
+# intentional placeholder values, not real secrets.
+# https://docs.gitguardian.com/ggshield-docs/reference/configuration
+
+version: 2
+
+ignore-paths:
+  - k8s/postgres-secret.yaml   # Stub only — no real credentials
+  - .env.example               # Template only — all values are empty or illustrative
