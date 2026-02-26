@@ -34,3 +34,6 @@ prisma/migrations/*/migration_lock.toml
 
 # Logs
 *.log
+
+#claude
+CLAUDE.md
