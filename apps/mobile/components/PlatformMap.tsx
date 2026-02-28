@@ -1,22 +1,23 @@
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { View } from 'react-native';
 
-const ASTORIA: [number, number] = [40.7721, -73.9302];
+// LeafletMap accesses `window` at import time, so it must never be loaded
+// during Expo Router's SSR/static-generation pass (Node.js has no `window`).
+// React.lazy + a mount guard ensures the import only fires in the browser.
+const LeafletMap = lazy(() => import('./LeafletMap'));
 
 export default function PlatformMap() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return <View style={{ flex: 1 }} />;
+
   return (
-    <MapContainer
-      center={ASTORIA}
-      zoom={14}
-      style={{ flex: 1, height: '100%', width: '100%' }}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      <CircleMarker center={ASTORIA} radius={10} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.8 }}>
-        <Popup>Astoria, Queens, NY</Popup>
-      </CircleMarker>
-    </MapContainer>
+    <Suspense fallback={<View style={{ flex: 1 }} />}>
+      <LeafletMap />
+    </Suspense>
   );
 }
