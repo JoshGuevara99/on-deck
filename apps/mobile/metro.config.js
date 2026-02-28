@@ -4,7 +4,7 @@ const path = require('path');
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '../..');
 
-const config = getDefaultConfig(projectRoot);
+const config = getDefaultConfig(projectRoot, { isCSSEnabled: true });
 
 // Watch the entire monorepo so Metro can resolve @on-deck/shared
 config.watchFolders = [workspaceRoot];
