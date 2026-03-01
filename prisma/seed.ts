@@ -2,202 +2,228 @@ import { PrismaClient, EventType, SignUpMethod } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const venues = [
-  { name: 'The Velvet Lounge',     address: '521 Congress Ave',      neighborhood: 'Congress Ave', city: 'Austin', state: 'TX' },
-  { name: 'Hole in the Wall',      address: '2538 Guadalupe St',     neighborhood: 'The Drag',     city: 'Austin', state: 'TX' },
-  { name: 'The Continental Club',  address: '1315 S Congress Ave',   neighborhood: 'S Congress',   city: 'Austin', state: 'TX' },
-  { name: 'The Parish',            address: '214 E 6th St',          neighborhood: '6th Street',   city: 'Austin', state: 'TX' },
-  { name: 'Cactus Cafe',           address: '2247 Guadalupe St',     neighborhood: 'UT Campus',    city: 'Austin', state: 'TX' },
-  { name: "Antone's Nightclub",    address: '305 E 5th St',          neighborhood: 'Downtown',     city: 'Austin', state: 'TX' },
-  { name: 'The Drafting Room',     address: '7112 Ed Bluestein Blvd',neighborhood: 'East Austin',  city: 'Austin', state: 'TX' },
-  { name: 'Spider House Ballroom', address: '2908 Fruth St',         neighborhood: 'Hyde Park',    city: 'Austin', state: 'TX' },
-];
-
-function daysFromNow(days: number, hour: number, minute = 0): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(hour, minute, 0, 0);
-  return d;
-}
-
 async function main() {
-  console.log('Seeding database…');
+  // ── Venues ──────────────────────────────────────────────────────────────────
+  const venues = await Promise.all([
+    prisma.venue.upsert({
+      where: { id: 'venue-1' },
+      update: {},
+      create: {
+        id: 'venue-1',
+        name: 'The Bitter End',
+        address: '147 Bleecker St',
+        neighborhood: 'Greenwich Village',
+        city: 'New York',
+        state: 'NY',
+        lat: 40.7282,
+        lng: -74.0,
+      },
+    }),
+    prisma.venue.upsert({
+      where: { id: 'venue-2' },
+      update: {},
+      create: {
+        id: 'venue-2',
+        name: 'Rockwood Music Hall',
+        address: '196 Allen St',
+        neighborhood: 'Lower East Side',
+        city: 'New York',
+        state: 'NY',
+        lat: 40.7218,
+        lng: -73.9876,
+      },
+    }),
+    prisma.venue.upsert({
+      where: { id: 'venue-3' },
+      update: {},
+      create: {
+        id: 'venue-3',
+        name: 'Bar Chord',
+        address: '1008 Cortelyou Rd',
+        neighborhood: 'Ditmas Park',
+        city: 'Brooklyn',
+        state: 'NY',
+        lat: 40.6418,
+        lng: -73.9638,
+      },
+    }),
+    prisma.venue.upsert({
+      where: { id: 'venue-4' },
+      update: {},
+      create: {
+        id: 'venue-4',
+        name: 'The Sidewalk Cafe',
+        address: '94 Ave A',
+        neighborhood: 'East Village',
+        city: 'New York',
+        state: 'NY',
+        lat: 40.7265,
+        lng: -73.9816,
+      },
+    }),
+    prisma.venue.upsert({
+      where: { id: 'venue-5' },
+      update: {},
+      create: {
+        id: 'venue-5',
+        name: 'Branded Saloon',
+        address: '603 Vanderbilt Ave',
+        neighborhood: 'Prospect Heights',
+        city: 'Brooklyn',
+        state: 'NY',
+        lat: 40.6763,
+        lng: -73.9683,
+      },
+    }),
+  ]);
 
-  // Create venues
-  const [velvet, holeInWall, continental, parish, cactus, antones, drafting, spider] =
-    await Promise.all(
-      venues.map((v) =>
-        prisma.venue.upsert({
-          where: { id: v.name }, // placeholder; real upsert uses name+city
-          update: {},
-          create: v,
-        }).catch(() =>
-          // If unique constraint fails just find it
-          prisma.venue.findFirstOrThrow({
-            where: { name: v.name, city: v.city },
-          }),
-        ),
-      ),
-    );
+  console.log(`Seeded ${venues.length} venues`);
 
-  // Wipe and re-seed events for a predictable state
-  await prisma.event.deleteMany({});
+  // ── Events ───────────────────────────────────────────────────────────────────
+  const now = new Date();
+  const d = (daysFromNow: number, hour: number) => {
+    const dt = new Date(now);
+    dt.setDate(dt.getDate() + daysFromNow);
+    dt.setHours(hour, 0, 0, 0);
+    return dt;
+  };
 
-  const events: Parameters<typeof prisma.event.createMany>[0]['data'] = [
-    // ── Tonight ───────────────────────────────────────────────────────────────
-    {
-      venueId: velvet!.id,
-      title: 'Tuesday Night Jazz Jam',
-      type: EventType.JAM_SESSION,
-      startsAt: daysFromNow(0, 20),
-      description: 'House jazz trio holds it down every Tuesday. All horns, strings, and keys welcome. Just bring your axe — the rhythm section has you covered.',
-      genres: ['Jazz', 'Blues', 'Soul'],
-      coverCharge: 'Free',
-      backline: ['Drum kit', 'Bass amp', 'Upright piano'],
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Tuesday',
-    },
-    {
-      venueId: holeInWall!.id,
-      title: "Songwriter's Circle",
-      type: EventType.OPEN_MIC,
-      startsAt: daysFromNow(0, 19, 30),
-      description: 'Original songs only. A safe space for works-in-progress. 3-minute slots, no covers, no judgement. Intimate listening-room energy.',
-      genres: ['Acoustic', 'Folk', 'Indie'],
-      coverCharge: 'Free',
-      slotDuration: '3 min',
-      backline: ['Guitar amp', 'Mic & stand'],
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Tuesday',
-    },
-    {
-      venueId: spider!.id,
-      title: 'Open Mic Comedy Night',
-      type: EventType.COMEDY_NIGHT,
-      startsAt: daysFromNow(0, 20, 30),
-      description: 'Five-minute sets. New material only — this is a crowd that can tell. Sign up starts at 8 PM. Hosted by Marcus Webb.',
-      genres: ['Stand-up', 'Improv'],
-      coverCharge: 'Free',
-      slotDuration: '5 min',
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Tuesday',
-    },
-    // ── Tomorrow ──────────────────────────────────────────────────────────────
-    {
-      venueId: continental!.id,
-      title: 'Blues Jam Session',
-      type: EventType.JAM_SESSION,
-      startsAt: daysFromNow(1, 21),
-      description: "Austin's longest-running blues jam. House band leads, all players rotate through. Blues and soul only — come ready to wail.",
-      genres: ['Blues', 'R&B', 'Soul'],
-      coverCharge: '$5',
-      slotDuration: '2–3 songs',
-      backline: ['Full backline provided'],
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Wednesday',
-    },
-    {
-      venueId: parish!.id,
-      title: 'Hip Hop Open Mic',
-      type: EventType.OPEN_MIC,
-      startsAt: daysFromNow(1, 20),
-      description: 'Bars, beats, and freestyles welcome. Bring your own beats on USB or go a cappella. Hosted by DJ Kwest. Expect a real crowd.',
-      genres: ['Hip Hop', 'Spoken Word', 'R&B'],
-      coverCharge: 'Free',
-      slotDuration: '5 min',
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Thursday',
-    },
-    {
-      venueId: drafting!.id,
-      title: 'Spoken Word & Poetry Night',
-      type: EventType.POETRY_SLAM,
-      startsAt: daysFromNow(1, 19, 30),
-      description: 'Open-format poetry night. Slam, spoken word, experimental — all welcome. 4-minute limit. No hate speech, no exceptions.',
-      genres: ['Poetry', 'Spoken Word', 'Experimental'],
-      coverCharge: 'Free',
-      slotDuration: '4 min',
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Wednesday',
-    },
-    // ── Coming up ─────────────────────────────────────────────────────────────
-    {
-      venueId: cactus!.id,
-      title: 'Acoustic Open Stage',
-      type: EventType.OPEN_MIC,
-      startsAt: daysFromNow(3, 18, 30),
-      description: 'Intimate listening room, seated audience, no talking. Originals and covers welcome. Arrive by 6 PM to sign up. Treat it like a real show.',
-      genres: ['Acoustic', 'Country', 'Folk', 'Classical'],
-      coverCharge: 'Free',
-      slotDuration: '5 min',
-      backline: ['Mic & stand', 'DI box'],
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Saturday',
-    },
-    {
-      venueId: antones!.id,
-      title: 'Funk & Soul Jam',
-      type: EventType.JAM_SESSION,
-      startsAt: daysFromNow(4, 21, 30),
-      description: 'Groove-forward players only. Expect Meters, James Brown, Prince, and plenty of originals. No noodling — serve the groove or step aside.',
-      genres: ['Funk', 'Soul', 'R&B'],
-      coverCharge: '$10',
-      slotDuration: '3–4 songs',
-      backline: ['Full backline provided'],
-      signUpMethod: SignUpMethod.ONLINE,
-      isRecurring: false,
-    },
-    {
-      venueId: spider!.id,
-      title: 'Sketch Comedy Showcase',
-      type: EventType.COMEDY_NIGHT,
-      startsAt: daysFromNow(5, 20),
-      description: 'Local sketch troupes take the stage. New material every week. Come to laugh, stay for the weird stuff.',
-      genres: ['Sketch', 'Improv', 'Stand-up'],
-      coverCharge: '$5',
-      slotDuration: '10 min',
-      signUpMethod: SignUpMethod.ONLINE,
-      isRecurring: true,
-      recurringDescription: 'Every Sunday',
-    },
-    {
-      venueId: drafting!.id,
-      title: 'Life Drawing Open Studio',
-      type: EventType.OPEN_STUDIO,
-      startsAt: daysFromNow(6, 18),
-      description: 'Bring your sketchbook or canvas. Live model, 20-minute and 5-minute poses. All skill levels welcome. Just show up.',
-      genres: ['Visual Art', 'Drawing', 'Figure Study'],
-      coverCharge: '$8',
-      signUpMethod: SignUpMethod.DOOR,
-      isRecurring: true,
-      recurringDescription: 'Every Monday',
-    },
-    {
-      venueId: holeInWall!.id,
-      title: 'Experimental Music Workshop',
-      type: EventType.WORKSHOP,
-      startsAt: daysFromNow(7, 14),
-      description: 'Noise, drone, and experimental electronics. Bring pedals, laptops, weird instruments. Facilitated open session — no structure, all exploration.',
-      genres: ['Experimental', 'Electronic', 'Noise'],
-      coverCharge: 'Free',
-      slotDuration: 'Open',
-      signUpMethod: SignUpMethod.APP,
-      isRecurring: false,
-    },
-  ];
+  const events = await Promise.all([
+    prisma.event.upsert({
+      where: { id: 'event-1' },
+      update: {},
+      create: {
+        id: 'event-1',
+        venueId: 'venue-1',
+        title: 'Monday Open Mic Night',
+        description: 'All genres welcome. Sign up at the door from 7 PM. Hosted by DJ Rosa.',
+        startsAt: d(0, 19),
+        endsAt: d(0, 23),
+        type: EventType.OPEN_MIC,
+        genres: ['Folk', 'Singer-Songwriter', 'Indie'],
+        coverCharge: 'Free',
+        slotDuration: '5 min',
+        backline: ['PA', 'Acoustic Guitar', 'Keyboard'],
+        signUpMethod: SignUpMethod.DOOR,
+        isRecurring: true,
+        recurringDescription: 'Every Monday',
+        isApproved: true,
+      },
+    }),
+    prisma.event.upsert({
+      where: { id: 'event-2' },
+      update: {},
+      create: {
+        id: 'event-2',
+        venueId: 'venue-2',
+        title: 'Tuesday Jazz Jam',
+        description: 'Open jam for all jazz musicians. House rhythm section provided.',
+        startsAt: d(1, 21),
+        endsAt: d(2, 1),
+        type: EventType.JAM_SESSION,
+        genres: ['Jazz', 'Bebop', 'Fusion'],
+        coverCharge: '$5',
+        slotDuration: 'Open',
+        backline: ['Drums', 'Bass Amp', 'PA', 'Piano'],
+        signUpMethod: SignUpMethod.DOOR,
+        isRecurring: true,
+        recurringDescription: 'Every Tuesday',
+        isApproved: true,
+      },
+    }),
+    prisma.event.upsert({
+      where: { id: 'event-3' },
+      update: {},
+      create: {
+        id: 'event-3',
+        venueId: 'venue-3',
+        title: 'Brooklyn Open Mic',
+        description: 'Music, comedy, spoken word — all welcome. No experience required.',
+        startsAt: d(2, 20),
+        endsAt: d(2, 23),
+        type: EventType.OPEN_MIC,
+        genres: ['Any'],
+        coverCharge: 'Free',
+        slotDuration: '7 min',
+        backline: ['PA', 'Mic Stand'],
+        signUpMethod: SignUpMethod.APP,
+        isRecurring: true,
+        recurringDescription: 'Every Wednesday',
+        isApproved: true,
+      },
+    }),
+    prisma.event.upsert({
+      where: { id: 'event-4' },
+      update: {},
+      create: {
+        id: 'event-4',
+        venueId: 'venue-4',
+        title: 'Anti-Folk Open Stage',
+        description: 'The original anti-folk stage. Raw, weird, and wonderful.',
+        startsAt: d(3, 19),
+        endsAt: d(3, 22),
+        type: EventType.OPEN_STAGE,
+        genres: ['Anti-Folk', 'Experimental', 'Punk'],
+        coverCharge: 'Free',
+        slotDuration: '3 songs',
+        backline: ['PA', 'Guitar Amp', 'Drum Kit'],
+        signUpMethod: SignUpMethod.DOOR,
+        isRecurring: false,
+        isApproved: true,
+      },
+    }),
+    prisma.event.upsert({
+      where: { id: 'event-5' },
+      update: {},
+      create: {
+        id: 'event-5',
+        venueId: 'venue-5',
+        title: 'Comedy Open Mic',
+        description: '5 minutes each. Bring your best material or your worst — we take both.',
+        startsAt: d(4, 20),
+        endsAt: d(4, 23),
+        type: EventType.COMEDY_NIGHT,
+        genres: [],
+        coverCharge: 'Free',
+        slotDuration: '5 min',
+        backline: ['PA', 'Mic Stand'],
+        signUpMethod: SignUpMethod.ONLINE,
+        isRecurring: true,
+        recurringDescription: 'Every Friday',
+        isApproved: true,
+      },
+    }),
+    prisma.event.upsert({
+      where: { id: 'event-6' },
+      update: {},
+      create: {
+        id: 'event-6',
+        venueId: 'venue-1',
+        title: 'Saturday Blues Jam',
+        description: 'All instruments welcome. House band kicks things off at 9.',
+        startsAt: d(5, 21),
+        endsAt: d(6, 1),
+        type: EventType.JAM_SESSION,
+        genres: ['Blues', 'R&B', 'Soul'],
+        coverCharge: '$10 at door',
+        slotDuration: 'Open',
+        backline: ['Full Backline', 'PA'],
+        signUpMethod: SignUpMethod.DOOR,
+        isRecurring: true,
+        recurringDescription: 'Every Saturday',
+        isApproved: true,
+      },
+    }),
+  ]);
 
-  await prisma.event.createMany({ data: events });
-
-  console.log(`✓ Seeded ${venues.length} venues and ${events.length} events.`);
+  console.log(`Seeded ${events.length} events`);
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
-  .finally(() => prisma.$disconnect());
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

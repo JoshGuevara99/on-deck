@@ -9,26 +9,21 @@ import {
   Switch,
   useWindowDimensions,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router';
+import { SignOutButton } from '../../components/SignOutButton';
 
 export default function ProfileScreen() {
   const { colors, theme, toggleTheme } = useTheme();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const styles = useMemo(() => makeStyles(colors), [colors]);
-
-  function handleSignIn() {
-    Alert.alert('Sign In', 'Authentication integration coming soon. Stay tuned!', [
-      { text: 'OK' },
-    ]);
-  }
-
-  function handleCreateAccount() {
-    Alert.alert('Create Account', 'Account creation coming soon. Stay tuned!', [{ text: 'OK' }]);
-  }
+  const { isSignedIn } = useAuth();
+  const { user } = useUser();
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -42,34 +37,44 @@ export default function ProfileScreen() {
       >
         <Text style={styles.heading}>Profile</Text>
 
-        {/* Auth CTA */}
+        {/* Auth CTA / signed-in state */}
         <View style={styles.authCard}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={34} color={colors.textMuted} />
           </View>
-          <Text style={styles.authTitle}>Join the community</Text>
-          <Text style={styles.authSub}>
-            Sign in to host events, save your favourites, and track your sets.
-          </Text>
-          <TouchableOpacity
-            style={[styles.signInBtn, { backgroundColor: colors.gold }]}
-            activeOpacity={0.85}
-            onPress={handleSignIn}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in"
-          >
-            <Text style={[styles.signInText, { color: colors.bg }]}>Sign In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleCreateAccount}
-            accessibilityRole="link"
-            accessibilityLabel="Create an account"
-          >
-            <Text style={styles.signUpLink}>
-              New here? <Text style={[styles.signUpLinkAccent, { color: colors.gold }]}>Create an account</Text>
-            </Text>
-          </TouchableOpacity>
+          {isSignedIn ? (
+            <>
+              <Text style={styles.authTitle}>{user?.emailAddresses[0].emailAddress}</Text>
+              <SignOutButton />
+            </>
+          ) : (
+            <>
+              <Text style={styles.authTitle}>Join the community</Text>
+              <Text style={styles.authSub}>
+                Sign in to host events, save your favourites, and track your sets.
+              </Text>
+              <TouchableOpacity
+                style={[styles.signInBtn, { backgroundColor: colors.gold }]}
+                activeOpacity={0.85}
+                onPress={() => router.push('/(auth)/sign-in')}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in"
+              >
+                <Text style={[styles.signInText, { color: colors.bg }]}>Sign In</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push('/(auth)/sign-up')}
+                accessibilityRole="link"
+                accessibilityLabel="Create an account"
+              >
+                <Text style={styles.signUpLink}>
+                  New here?{' '}
+                  <Text style={[styles.signUpLinkAccent, { color: colors.gold }]}>Create an account</Text>
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Sections */}

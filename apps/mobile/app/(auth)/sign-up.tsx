@@ -1,7 +1,7 @@
 import { useSignUp } from '@clerk/clerk-expo'
 import { Link, useRouter } from 'expo-router'
 import * as React from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useTheme } from '../../context/ThemeContext'
 
 export default function SignUpPage() {
@@ -13,15 +13,24 @@ export default function SignUpPage() {
   const [password, setPassword] = React.useState('')
   const [pendingVerification, setPendingVerification] = React.useState(false)
   const [code, setCode] = React.useState('')
+  const [error, setError] = React.useState('')
 
   const onSignUpPress = async () => {
     if (!isLoaded) return
 
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+
+    setError('')
     try {
       await signUp.create({ emailAddress, password })
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setPendingVerification(true)
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.message ?? 'Something went wrong.'
+      setError(msg)
       console.error(JSON.stringify(err, null, 2))
     }
   }
@@ -29,6 +38,7 @@ export default function SignUpPage() {
   const onVerifyPress = async () => {
     if (!isLoaded) return
 
+    setError('')
     try {
       const signUpAttempt = await signUp.attemptEmailAddressVerification({ code })
 
@@ -46,7 +56,9 @@ export default function SignUpPage() {
       } else {
         console.error(JSON.stringify(signUpAttempt, null, 2))
       }
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.message ?? 'Verification failed.'
+      setError(msg)
       console.error(JSON.stringify(err, null, 2))
     }
   }
@@ -66,6 +78,7 @@ export default function SignUpPage() {
           onChangeText={setCode}
           keyboardType="numeric"
         />
+        {error ? <Text style={[styles.errorText, { color: colors.jam }]}>{error}</Text> : null}
         <Pressable
           style={({ pressed }) => [styles.button, { backgroundColor: colors.gold }, pressed && styles.buttonPressed]}
           onPress={onVerifyPress}
@@ -93,11 +106,17 @@ export default function SignUpPage() {
       <TextInput
         style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
         value={password}
-        placeholder="Enter password"
+        placeholder="8+ characters"
         placeholderTextColor={colors.textMuted}
         secureTextEntry
-        onChangeText={setPassword}
+        onChangeText={(val) => {
+          setPassword(val)
+          if (error) setError('')
+        }}
       />
+      {error ? <Text style={[styles.errorText, { color: colors.jam }]}>{error}</Text> : null}
+      {/* Required by Clerk for CAPTCHA bot protection on web */}
+      {Platform.OS === 'web' && <div id="clerk-captcha" />}
       <Pressable
         style={({ pressed }) => [
           styles.button,
@@ -144,6 +163,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   button: {
     paddingVertical: 12,
