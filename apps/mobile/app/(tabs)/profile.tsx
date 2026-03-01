@@ -24,7 +24,7 @@ export default function ProfileScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const { isLoaded, user } = useUser();
   const router = useRouter();
 
@@ -32,17 +32,22 @@ export default function ProfileScreen() {
   const [myEventsLoading, setMyEventsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user?.id) {
+    if (!isLoaded || !isSignedIn) {
       setMyEvents([]);
       return;
     }
+    let cancelled = false;
     setMyEventsLoading(true);
-    apiClient.events
-      .list({ submittedBy: user.id })
-      .then(setMyEvents)
-      .catch(() => setMyEvents([]))
-      .finally(() => setMyEventsLoading(false));
-  }, [isLoaded, isSignedIn, user?.id]);
+    getToken()
+      .then((token) => {
+        if (!token) throw new Error('No token');
+        return apiClient.users.myEvents(token);
+      })
+      .then((events) => { if (!cancelled) setMyEvents(events); })
+      .catch(() => { if (!cancelled) setMyEvents([]); })
+      .finally(() => { if (!cancelled) setMyEventsLoading(false); });
+    return () => { cancelled = true; };
+  }, [isLoaded, isSignedIn]);
 
   return (
     <SafeAreaView style={styles.safe}>

@@ -28,3 +28,20 @@ usersRouter.post('/sync', requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+/** GET /users/me/events — returns only events submitted by the authenticated user */
+usersRouter.get('/me/events', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = getAuth(req);
+
+    const events = await prisma.event.findMany({
+      where: { submittedBy: userId as string },
+      include: { venue: true },
+      orderBy: { startsAt: 'asc' },
+    });
+
+    res.json(events);
+  } catch (err) {
+    next(err);
+  }
+});

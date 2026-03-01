@@ -5,14 +5,16 @@ const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').rep
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 
-async function get<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function get<T>(path: string, params?: Record<string, string>, token?: string): Promise<T> {
   const url = new URL(`${API_URL}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== '') url.searchParams.set(k, v);
     });
   }
-  const res = await fetch(url.toString());
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -92,6 +94,11 @@ export const apiClient = {
   users: {
     async sync(token: string, body: { email: string; name?: string }): Promise<void> {
       await post<unknown>('/users/sync', body, token);
+    },
+
+    async myEvents(token: string): Promise<MockEvent[]> {
+      const data = await get<ApiEvent[]>('/users/me/events', undefined, token);
+      return data.map(toMockEvent);
     },
   },
 };
