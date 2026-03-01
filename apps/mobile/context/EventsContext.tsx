@@ -7,7 +7,7 @@ interface EventsContextValue {
   events: MockEvent[];
   loading: boolean;
   error: string | null;
-  addEvent: (input: CreateEventInput) => Promise<MockEvent>;
+  addEvent: (input: CreateEventInput, token?: string) => Promise<MockEvent>;
   refresh: () => Promise<void>;
 }
 
@@ -36,8 +36,8 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { fetchEvents(); }, []);
 
-  async function addEvent(input: CreateEventInput): Promise<MockEvent> {
-    const newEvent = await apiClient.events.create(input);
+  async function addEvent(input: CreateEventInput, token?: string): Promise<MockEvent> {
+    const newEvent = await apiClient.events.create(input, token);
     setEvents((prev) => [newEvent, ...prev]);
     return newEvent;
   }

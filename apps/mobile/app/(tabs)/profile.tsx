@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,26 +9,45 @@ import {
   Switch,
   useWindowDimensions,
   StatusBar,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router';
+import { SignOutButton } from '../../components/SignOutButton';
+import { apiClient } from '../../lib/api';
+import type { MockEvent } from '../../constants/mock-data';
 
 export default function ProfileScreen() {
   const { colors, theme, toggleTheme } = useTheme();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { isSignedIn, getToken } = useAuth();
+  const { isLoaded, user } = useUser();
+  const router = useRouter();
 
-  function handleSignIn() {
-    Alert.alert('Sign In', 'Authentication integration coming soon. Stay tuned!', [
-      { text: 'OK' },
-    ]);
-  }
+  const [myEvents, setMyEvents] = useState<MockEvent[]>([]);
+  const [myEventsLoading, setMyEventsLoading] = useState(false);
 
-  function handleCreateAccount() {
-    Alert.alert('Create Account', 'Account creation coming soon. Stay tuned!', [{ text: 'OK' }]);
-  }
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) {
+      setMyEvents([]);
+      return;
+    }
+    let cancelled = false;
+    setMyEventsLoading(true);
+    getToken()
+      .then((token) => {
+        if (!token) throw new Error('No token');
+        return apiClient.users.myEvents(token);
+      })
+      .then((events) => { if (!cancelled) setMyEvents(events); })
+      .catch(() => { if (!cancelled) setMyEvents([]); })
+      .finally(() => { if (!cancelled) setMyEventsLoading(false); });
+    return () => { cancelled = true; };
+  }, [isLoaded, isSignedIn]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -42,41 +61,51 @@ export default function ProfileScreen() {
       >
         <Text style={styles.heading}>Profile</Text>
 
-        {/* Auth CTA */}
+        {/* Auth CTA / signed-in state */}
         <View style={styles.authCard}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={34} color={colors.textMuted} />
           </View>
-          <Text style={styles.authTitle}>Join the community</Text>
-          <Text style={styles.authSub}>
-            Sign in to host events, save your favourites, and track your sets.
-          </Text>
-          <TouchableOpacity
-            style={[styles.signInBtn, { backgroundColor: colors.gold }]}
-            activeOpacity={0.85}
-            onPress={handleSignIn}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in"
-          >
-            <Text style={[styles.signInText, { color: colors.bg }]}>Sign In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleCreateAccount}
-            accessibilityRole="link"
-            accessibilityLabel="Create an account"
-          >
-            <Text style={styles.signUpLink}>
-              New here? <Text style={[styles.signUpLinkAccent, { color: colors.gold }]}>Create an account</Text>
-            </Text>
-          </TouchableOpacity>
+          {isSignedIn ? (
+            <>
+              <Text style={styles.authTitle}>{user?.emailAddresses[0].emailAddress}</Text>
+              <SignOutButton />
+            </>
+          ) : (
+            <>
+              <Text style={styles.authTitle}>Join the community</Text>
+              <Text style={styles.authSub}>
+                Sign in to host events, save your favourites, and track your sets.
+              </Text>
+              <TouchableOpacity
+                style={[styles.signInBtn, { backgroundColor: colors.gold }]}
+                activeOpacity={0.85}
+                onPress={() => router.push('/(auth)/sign-in')}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in"
+              >
+                <Text style={[styles.signInText, { color: colors.bg }]}>Sign In</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push('/(auth)/sign-up')}
+                accessibilityRole="link"
+                accessibilityLabel="Create an account"
+              >
+                <Text style={styles.signUpLink}>
+                  New here?{' '}
+                  <Text style={[styles.signUpLinkAccent, { color: colors.gold }]}>Create an account</Text>
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
-        {/* Sections */}
-        <ProfileSection
-          title="My Events"
-          icon="calendar-outline"
-          empty="No hosted events yet. Submit one and get on deck."
+        {/* My Events */}
+        <MyEventsSection
+          events={myEvents}
+          loading={myEventsLoading}
+          isSignedIn={!!isSignedIn}
           colors={colors}
         />
         <ProfileSection
@@ -132,6 +161,59 @@ export default function ProfileScreen() {
   );
 }
 
+function MyEventsSection({
+  events,
+  loading,
+  isSignedIn,
+  colors,
+}: {
+  events: MockEvent[];
+  loading: boolean;
+  isSignedIn: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <View style={sectionStyles.container}>
+      <View style={sectionStyles.header}>
+        <Ionicons name="calendar-outline" size={16} color={colors.gold} />
+        <Text style={[sectionStyles.title, { color: colors.text }]}>My Events</Text>
+      </View>
+      {loading ? (
+        <View style={[sectionStyles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <ActivityIndicator color={colors.gold} />
+        </View>
+      ) : !isSignedIn || events.length === 0 ? (
+        <View style={[sectionStyles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[sectionStyles.emptyText, { color: colors.textMuted }]}>
+            {isSignedIn
+              ? 'No hosted events yet. Submit one and get on deck.'
+              : 'Sign in to see your events.'}
+          </Text>
+        </View>
+      ) : (
+        <View style={[sectionStyles.listBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {events.map((event, idx) => (
+            <View
+              key={event.id}
+              style={[
+                sectionStyles.eventRow,
+                idx < events.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+              ]}
+            >
+              <Text style={[sectionStyles.eventTitle, { color: colors.text }]} numberOfLines={1}>
+                {event.title}
+              </Text>
+              <Text style={[sectionStyles.eventVenue, { color: colors.textMuted }]} numberOfLines={1}>
+                {event.venue.name}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function ProfileSection({
   title,
   icon,
@@ -180,6 +262,23 @@ const sectionStyles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  listBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  eventRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  eventTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  eventVenue: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });
 

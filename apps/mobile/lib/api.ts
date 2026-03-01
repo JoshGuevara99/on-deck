@@ -5,22 +5,26 @@ const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').rep
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 
-async function get<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function get<T>(path: string, params?: Record<string, string>, token?: string): Promise<T> {
   const url = new URL(`${API_URL}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== '') url.searchParams.set(k, v);
     });
   }
-  const res = await fetch(url.toString());
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -75,14 +79,26 @@ export const apiClient = {
       if (filters.to) params.to = filters.to;
       if (filters.limit != null) params.limit = String(filters.limit);
       if (filters.offset != null) params.offset = String(filters.offset);
+      if (filters.submittedBy) params.submittedBy = filters.submittedBy;
 
       const data = await get<ApiEvent[]>('/events', params);
       return data.map(toMockEvent);
     },
 
-    async create(input: CreateEventInput): Promise<MockEvent> {
-      const data = await post<ApiEvent>('/events', input);
+    async create(input: CreateEventInput, token?: string): Promise<MockEvent> {
+      const data = await post<ApiEvent>('/events', input, token);
       return toMockEvent(data);
+    },
+  },
+
+  users: {
+    async sync(token: string, body: { email: string; name?: string }): Promise<void> {
+      await post<unknown>('/users/sync', body, token);
+    },
+
+    async myEvents(token: string): Promise<MockEvent[]> {
+      const data = await get<ApiEvent[]>('/users/me/events', undefined, token);
+      return data.map(toMockEvent);
     },
   },
 };

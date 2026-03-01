@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../../context/ThemeContext';
 import { useEvents } from '../../context/EventsContext';
 import type { EventType, CreateEventInput } from '@on-deck/shared';
@@ -265,12 +266,93 @@ function makeSuccessStyles(colors: ReturnType<typeof useTheme>['colors']) {
   });
 }
 
+// ─── Sign-in gate ─────────────────────────────────────────────────────────────
+
+function SignInGate() {
+  const { colors, theme } = useTheme();
+  const router = useRouter();
+  const styles = useMemo(() => makeGateStyles(colors), [colors]);
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <StatusBar
+        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
+      <View style={styles.container}>
+        <View style={styles.iconCircle}>
+          <Ionicons name="lock-closed" size={40} color={colors.gold} />
+        </View>
+        <Text style={styles.heading}>Sign in to add events</Text>
+        <Text style={styles.sub}>
+          Create an account or sign in to share open mics, jam sessions, and more with the community.
+        </Text>
+        <TouchableOpacity
+          style={[styles.btn, { backgroundColor: colors.gold }]}
+          activeOpacity={0.85}
+          onPress={() => router.push('/(auth)/sign-in')}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+        >
+          <Text style={[styles.btnText, { color: colors.bg }]}>Sign In</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function makeGateStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.bg },
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 36,
+      gap: 14,
+    },
+    iconCircle: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      backgroundColor: `${colors.gold}18`,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    heading: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    sub: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    btn: {
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 48,
+      marginTop: 8,
+    },
+    btnText: {
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+    },
+  });
+}
+
 // ─── Submit form ─────────────────────────────────────────────────────────────
 
 export default function SubmitScreen() {
   const { colors, theme } = useTheme();
   const { addEvent } = useEvents();
   const router = useRouter();
+  const { isSignedIn, getToken } = useAuth();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
@@ -298,8 +380,9 @@ export default function SubmitScreen() {
     try {
       setSubmitting(true);
       setSubmitError(null);
+      const token = await getToken();
       const input = buildCreateInput(eventType, form);
-      const newEvent = await addEvent(input);
+      const newEvent = await addEvent(input, token ?? undefined);
       setSubmittedEvent(newEvent);
     } catch (e) {
       setSubmitError('Could not submit the event. Please try again.');
@@ -321,6 +404,10 @@ export default function SubmitScreen() {
     setEventType('OPEN_MIC');
     setSubmittedEvent(null);
     router.push('/(tabs)');
+  }
+
+  if (!isSignedIn) {
+    return <SignInGate />;
   }
 
   if (submittedEvent) {
