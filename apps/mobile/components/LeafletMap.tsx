@@ -10,21 +10,24 @@ interface Props {
   selectedCity: CityOption | null;
 }
 
-function MapController({ center }: { center: [number, number] }) {
+function MapController({ center }: { center: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
+    if (!center) return;
     map.flyTo(center, 13, { duration: 0.8 });
-  }, [center[0], center[1]]);
+  }, [center?.[0], center?.[1]]);
   return null;
 }
 
 export default function LeafletMap({ venues, selectedCity }: Props) {
   const city = selectedCity ?? DEFAULT_CITY;
-  const center: [number, number] = [city.lat, city.lng];
+  const center: [number, number] | null =
+    city.lat != null && city.lng != null ? [city.lat, city.lng] : null;
+  const initialCenter: [number, number] = [DEFAULT_CITY.lat!, DEFAULT_CITY.lng!];
 
   return (
     <MapContainer
-      center={center}
+      center={center ?? initialCenter}
       zoom={13}
       style={{ flex: 1, height: '100%', width: '100%' }}
     >

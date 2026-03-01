@@ -1,4 +1,14 @@
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { useState, useMemo } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { PRESET_CITIES, type CityOption } from '../constants/cities';
@@ -13,77 +23,200 @@ interface Props {
 export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Props) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  const [query, setQuery] = useState('');
 
   function handleSelect(city: CityOption | null) {
     onSelect(city);
+    setQuery('');
     onClose();
   }
 
-  const allSelected = selectedCity === null;
+  function handleClose() {
+    setQuery('');
+    onClose();
+  }
+
+  const trimmed = query.trim();
+
+  const results = useMemo(() => {
+    if (!trimmed) return PRESET_CITIES;
+    const q = trimmed.toLowerCase();
+    return PRESET_CITIES.filter(
+      (c) => c.city.toLowerCase().includes(q) || c.label.toLowerCase().includes(q),
+    );
+  }, [trimmed]);
+
+  // Offer a custom "use whatever they typed" option when there are no preset matches
+  const showCustomOption = trimmed.length > 0 && results.length === 0;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <Pressable style={styles.backdrop} onPress={handleClose} />
 
       <View style={styles.sheet}>
         <View style={styles.handle} />
 
+        {/* Header */}
         <View style={styles.headingRow}>
-          <Text style={styles.heading}>Choose City</Text>
-          <TouchableOpacity onPress={onClose} accessibilityLabel="Close">
+          <Text style={styles.heading}>Search City</Text>
+          <TouchableOpacity onPress={handleClose} accessibilityLabel="Close" hitSlop={12}>
             <Ionicons name="close" size={22} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
-        {/* All Cities chip */}
-        <TouchableOpacity
-          style={[styles.allChip, allSelected && { borderColor: colors.gold, backgroundColor: `${colors.gold}18` }]}
-          onPress={() => handleSelect(null)}
-          activeOpacity={0.75}
-          accessibilityLabel="All cities"
-        >
-          <Ionicons
-            name="globe-outline"
-            size={15}
-            color={allSelected ? colors.gold : colors.textSecondary}
+        {/* Search input */}
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={17} color={colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="e.g. Austin, Chicago, Seattle…"
+            placeholderTextColor={colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
+            autoCorrect={false}
+            autoCapitalize="words"
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            accessibilityLabel="Search for a city"
           />
-          <Text style={[styles.allChipText, allSelected && { color: colors.gold, fontWeight: '700' }]}>
-            All Cities
-          </Text>
-          {allSelected && <Ionicons name="checkmark" size={15} color={colors.gold} />}
-        </TouchableOpacity>
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
 
-        <Text style={styles.sectionLabel}>Popular Cities</Text>
+        {/* Results list */}
+        <ScrollView
+          style={styles.list}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* All Cities — only show when search is empty */}
+          {!trimmed && (
+            <CityRow
+              label="All Cities"
+              sublabel="Show events from everywhere"
+              icon="globe-outline"
+              active={selectedCity === null}
+              onPress={() => handleSelect(null)}
+              colors={colors}
+            />
+          )}
 
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-          <View style={styles.grid}>
-            {PRESET_CITIES.map((city) => {
-              const active = selectedCity?.city === city.city;
-              return (
-                <TouchableOpacity
-                  key={city.city}
-                  style={[
-                    styles.chip,
-                    active && { borderColor: colors.gold, backgroundColor: `${colors.gold}18` },
-                  ]}
-                  onPress={() => handleSelect(city)}
-                  activeOpacity={0.75}
-                  accessibilityLabel={city.label}
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.chipText, active && { color: colors.gold, fontWeight: '700' }]}>
-                    {city.label}
-                  </Text>
-                  {active && <Ionicons name="checkmark" size={13} color={colors.gold} />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          {results.map((city) => (
+            <CityRow
+              key={city.city}
+              label={city.label}
+              icon="location-outline"
+              active={selectedCity?.city === city.city}
+              onPress={() => handleSelect(city)}
+              colors={colors}
+            />
+          ))}
+
+          {/* Custom city fallback */}
+          {showCustomOption && (
+            <CityRow
+              label={`Use "${trimmed}"`}
+              sublabel="Search events in this city"
+              icon="search-outline"
+              active={false}
+              onPress={() =>
+                handleSelect({ city: trimmed, label: trimmed })
+              }
+              colors={colors}
+            />
+          )}
+
+          {/* No results at all */}
+          {!showCustomOption && trimmed && results.length === 0 && (
+            <View style={styles.empty}>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No cities found</Text>
+            </View>
+          )}
         </ScrollView>
       </View>
     </Modal>
   );
 }
+
+function CityRow({
+  label,
+  sublabel,
+  icon,
+  active,
+  onPress,
+  colors,
+}: {
+  label: string;
+  sublabel?: string;
+  icon: string;
+  active: boolean;
+  onPress: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <TouchableOpacity
+      style={[
+        rowStyles.row,
+        { borderBottomColor: colors.border },
+        active && { backgroundColor: `${colors.gold}10` },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.65}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Ionicons
+        name={icon as any}
+        size={18}
+        color={active ? colors.gold : colors.textMuted}
+        style={rowStyles.icon}
+      />
+      <View style={rowStyles.text}>
+        <Text
+          style={[
+            rowStyles.label,
+            { color: active ? colors.gold : colors.text },
+            active && { fontWeight: '700' },
+          ]}
+        >
+          {label}
+        </Text>
+        {sublabel && (
+          <Text style={[rowStyles.sublabel, { color: colors.textMuted }]}>{sublabel}</Text>
+        )}
+      </View>
+      {active && <Ionicons name="checkmark" size={18} color={colors.gold} />}
+    </TouchableOpacity>
+  );
+}
+
+const rowStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  icon: {
+    marginRight: 14,
+  },
+  text: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  sublabel: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+});
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
@@ -95,11 +228,12 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       backgroundColor: colors.surface,
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
-      padding: 24,
+      paddingTop: 16,
+      paddingHorizontal: 24,
       paddingBottom: 48,
       borderTopWidth: 1,
       borderColor: colors.border,
-      maxHeight: '75%',
+      maxHeight: '80%',
     },
     handle: {
       width: 40,
@@ -107,67 +241,45 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderRadius: 2,
       backgroundColor: colors.border,
       alignSelf: 'center',
-      marginBottom: 20,
+      marginBottom: 18,
     },
     headingRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: 14,
     },
     heading: {
       fontSize: 20,
       fontWeight: '800',
       color: colors.text,
     },
-    allChip: {
+    searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
+      gap: 10,
+      backgroundColor: colors.bg,
       borderRadius: 12,
       paddingHorizontal: 14,
-      paddingVertical: 11,
-      marginBottom: 20,
-    },
-    allChipText: {
-      flex: 1,
-      fontSize: 15,
-      fontWeight: '600',
-      color: colors.textSecondary,
-    },
-    sectionLabel: {
-      fontSize: 11,
-      fontWeight: '700',
-      letterSpacing: 1.2,
-      textTransform: 'uppercase',
-      color: colors.textMuted,
-      marginBottom: 12,
-    },
-    scroll: {
-      flexGrow: 0,
-    },
-    grid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-    },
-    chip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
+      paddingVertical: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      backgroundColor: colors.bg,
+      marginBottom: 8,
     },
-    chipText: {
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      color: colors.text,
+    },
+    list: {
+      flexGrow: 0,
+    },
+    empty: {
+      paddingVertical: 32,
+      alignItems: 'center',
+    },
+    emptyText: {
       fontSize: 14,
-      fontWeight: '500',
-      color: colors.textSecondary,
     },
   });
 }

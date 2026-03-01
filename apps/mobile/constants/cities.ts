@@ -1,8 +1,8 @@
 export interface CityOption {
   city: string;   // value sent to the API filter
   label: string;  // display string e.g. "Austin, TX"
-  lat: number;
-  lng: number;
+  lat?: number;   // undefined for custom-typed cities (map won't re-center)
+  lng?: number;
 }
 
 export const PRESET_CITIES: CityOption[] = [

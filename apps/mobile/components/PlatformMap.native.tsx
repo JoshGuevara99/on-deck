@@ -15,6 +15,7 @@ export default function PlatformMap({ venues, selectedCity }: Props) {
   const center = selectedCity ?? DEFAULT_CITY;
 
   useEffect(() => {
+    if (center.lat == null || center.lng == null) return;
     mapRef.current?.animateToRegion(
       {
         latitude: center.lat,
@@ -31,8 +32,8 @@ export default function PlatformMap({ venues, selectedCity }: Props) {
       ref={mapRef}
       style={styles.map}
       initialRegion={{
-        latitude: center.lat,
-        longitude: center.lng,
+        latitude: center.lat ?? DEFAULT_CITY.lat!,
+        longitude: center.lng ?? DEFAULT_CITY.lng!,
         latitudeDelta: 0.08,
         longitudeDelta: 0.08,
       }}
