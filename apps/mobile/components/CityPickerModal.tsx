@@ -39,37 +39,37 @@ export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Pr
   const trimmed = query.trim();
 
   const results = useMemo(() => {
-    if (!trimmed) return PRESET_CITIES;
+    if (!trimmed) return [];
     const q = trimmed.toLowerCase();
-    return PRESET_CITIES.filter(
+    const matched = PRESET_CITIES.filter(
       (c) => c.city.toLowerCase().includes(q) || c.label.toLowerCase().includes(q),
     );
+    // Sort: starts-with first, then contains
+    return matched.sort((a, b) => {
+      const aStarts = a.city.toLowerCase().startsWith(q);
+      const bStarts = b.city.toLowerCase().startsWith(q);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.city.localeCompare(b.city);
+    });
   }, [trimmed]);
 
   // Offer a custom "use whatever they typed" option when there are no preset matches
   const showCustomOption = trimmed.length > 0 && results.length === 0;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <Pressable style={styles.backdrop} onPress={handleClose} />
 
       <View style={styles.sheet}>
         <View style={styles.handle} />
-
-        {/* Header */}
-        <View style={styles.headingRow}>
-          <Text style={styles.heading}>Search City</Text>
-          <TouchableOpacity onPress={handleClose} accessibilityLabel="Close" hitSlop={12}>
-            <Ionicons name="close" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
 
         {/* Search input */}
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={17} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="e.g. Austin, Chicago, Seattle…"
+            placeholder="Search cities…"
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -93,24 +93,22 @@ export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Pr
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* All Cities — only show when search is empty */}
+          {/* Empty state — no query yet */}
           {!trimmed && (
-            <CityRow
-              label="All Cities"
-              sublabel="Show events from everywhere"
-              icon="globe-outline"
-              active={selectedCity === null}
-              onPress={() => handleSelect(null)}
-              colors={colors}
-            />
+            <View style={styles.hint}>
+              <Ionicons name="location-outline" size={28} color={colors.border} />
+              <Text style={[styles.hintText, { color: colors.textMuted }]}>
+                Type to search cities
+              </Text>
+            </View>
           )}
 
           {results.map((city) => (
             <CityRow
-              key={city.city}
+              key={city.label}
               label={city.label}
               icon="location-outline"
-              active={selectedCity?.city === city.city}
+              active={selectedCity?.label === city.label}
               onPress={() => handleSelect(city)}
               colors={colors}
             />
@@ -123,18 +121,9 @@ export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Pr
               sublabel="Search events in this city"
               icon="search-outline"
               active={false}
-              onPress={() =>
-                handleSelect({ city: trimmed, label: trimmed })
-              }
+              onPress={() => handleSelect({ city: trimmed, label: trimmed })}
               colors={colors}
             />
-          )}
-
-          {/* No results at all */}
-          {!showCustomOption && trimmed && results.length === 0 && (
-            <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No cities found</Text>
-            </View>
           )}
         </ScrollView>
       </View>
@@ -222,49 +211,38 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: 'rgba(0,0,0,0.45)',
     },
     sheet: {
       backgroundColor: colors.surface,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      paddingTop: 16,
-      paddingHorizontal: 24,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 12,
+      paddingHorizontal: 20,
       paddingBottom: 48,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
-      maxHeight: '80%',
+      maxHeight: '70%',
     },
     handle: {
-      width: 40,
+      width: 36,
       height: 4,
       borderRadius: 2,
       backgroundColor: colors.border,
       alignSelf: 'center',
-      marginBottom: 18,
-    },
-    headingRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
       marginBottom: 14,
-    },
-    heading: {
-      fontSize: 20,
-      fontWeight: '800',
-      color: colors.text,
     },
     searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       backgroundColor: colors.bg,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
       borderWidth: 1,
       borderColor: colors.border,
-      marginBottom: 8,
+      marginBottom: 4,
     },
     searchInput: {
       flex: 1,
@@ -274,11 +252,12 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     list: {
       flexGrow: 0,
     },
-    empty: {
-      paddingVertical: 32,
+    hint: {
+      paddingVertical: 36,
       alignItems: 'center',
+      gap: 10,
     },
-    emptyText: {
+    hintText: {
       fontSize: 14,
     },
   });
