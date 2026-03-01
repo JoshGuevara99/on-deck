@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { ThemeProvider } from '../context/ThemeContext';
+import { LocationProvider } from '../context/LocationContext';
 import { EventsProvider } from '../context/EventsContext';
 import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
@@ -44,9 +45,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <ClerkProvider tokenCache={tokenCache}>
-        <EventsProvider>
-          <AppShell />
-        </EventsProvider>
+        <LocationProvider>
+          <EventsProvider>
+            <AppShell />
+          </EventsProvider>
+        </LocationProvider>
       </ClerkProvider>
     </ThemeProvider>
   );

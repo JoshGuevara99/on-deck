@@ -14,9 +14,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useEvents } from '../../context/EventsContext';
+import { useLocation } from '../../context/LocationContext';
 import { EventCard } from '../../components/EventCard';
 import { FilterChip } from '../../components/FilterChip';
 import { FilterModal, type ExtraFilters } from '../../components/FilterModal';
+import { CityPickerModal } from '../../components/CityPickerModal';
 import { SectionHeader } from '../../components/SectionHeader';
 import { isTonight } from '../../utils/date';
 import type { EventType } from '@on-deck/shared';
@@ -38,6 +40,7 @@ const INITIAL_EXTRA_FILTERS: ExtraFilters = { tonightOnly: false, freeOnly: fals
 export default function DiscoverScreen() {
   const { colors, theme } = useTheme();
   const { events, loading, error } = useEvents();
+  const { selectedCity, setCity } = useLocation();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
@@ -45,6 +48,7 @@ export default function DiscoverScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [extraFilters, setExtraFilters] = useState<ExtraFilters>(INITIAL_EXTRA_FILTERS);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -107,10 +111,19 @@ export default function DiscoverScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.appName}>ON DECK</Text>
-            <View style={styles.locationRow}>
+            <TouchableOpacity
+              style={styles.locationRow}
+              onPress={() => setShowCityPicker(true)}
+              activeOpacity={0.7}
+              accessibilityLabel="Change city"
+              accessibilityRole="button"
+            >
               <Ionicons name="location-sharp" size={12} color={colors.gold} />
-              <Text style={styles.locationText}>Austin, TX</Text>
-            </View>
+              <Text style={styles.locationText}>
+                {selectedCity ? selectedCity.label : 'All Cities'}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
           </View>
           <TouchableOpacity
             style={[styles.iconButton, activeExtraCount > 0 && styles.iconButtonActive]}
@@ -222,6 +235,13 @@ export default function DiscoverScreen() {
         filters={extraFilters}
         onChange={setExtraFilters}
         onClose={() => setShowFilterModal(false)}
+      />
+
+      <CityPickerModal
+        visible={showCityPicker}
+        selectedCity={selectedCity}
+        onSelect={setCity}
+        onClose={() => setShowCityPicker(false)}
       />
     </SafeAreaView>
   );

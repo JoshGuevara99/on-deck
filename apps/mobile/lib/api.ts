@@ -45,6 +45,8 @@ function toMockEvent(e: ApiEvent): MockEvent {
     neighborhood: e.venue.neighborhood ?? e.venue.address,
     city: e.venue.city,
     state: e.venue.state,
+    lat: e.venue.lat ?? undefined,
+    lng: e.venue.lng ?? undefined,
   };
 
   return {

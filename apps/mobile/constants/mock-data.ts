@@ -7,6 +7,8 @@ export interface MockVenue {
   neighborhood: string;
   city: string;
   state: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface MockEvent {

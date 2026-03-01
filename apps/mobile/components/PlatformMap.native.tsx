@@ -1,18 +1,54 @@
+import { useRef, useEffect } from 'react';
 import MapView, { Marker } from 'react-native-maps';
 import { StyleSheet } from 'react-native';
+import { DEFAULT_CITY } from '../constants/cities';
+import type { VenueMarker } from './PlatformMap';
+import type { CityOption } from '../constants/cities';
 
-const ASTORIA = { latitude: 40.7721, longitude: -73.9302 };
+interface Props {
+  venues: VenueMarker[];
+  selectedCity: CityOption | null;
+}
 
-const INITIAL_REGION = {
-  ...ASTORIA,
-  latitudeDelta: 0.04,
-  longitudeDelta: 0.04,
-};
+export default function PlatformMap({ venues, selectedCity }: Props) {
+  const mapRef = useRef<MapView>(null);
+  const center = selectedCity ?? DEFAULT_CITY;
 
-export default function PlatformMap() {
+  useEffect(() => {
+    mapRef.current?.animateToRegion(
+      {
+        latitude: center.lat,
+        longitude: center.lng,
+        latitudeDelta: 0.08,
+        longitudeDelta: 0.08,
+      },
+      600,
+    );
+  }, [center.lat, center.lng]);
+
   return (
-    <MapView style={styles.map} initialRegion={INITIAL_REGION}>
-      <Marker coordinate={ASTORIA} title="Astoria" description="Queens, NY" />
+    <MapView
+      ref={mapRef}
+      style={styles.map}
+      initialRegion={{
+        latitude: center.lat,
+        longitude: center.lng,
+        latitudeDelta: 0.08,
+        longitudeDelta: 0.08,
+      }}
+    >
+      {venues.map((venue) => (
+        <Marker
+          key={venue.id}
+          coordinate={{ latitude: venue.lat, longitude: venue.lng }}
+          title={venue.name}
+          description={
+            venue.eventTitles.length === 1
+              ? venue.eventTitles[0]
+              : `${venue.eventTitles.length} events`
+          }
+        />
+      ))}
     </MapView>
   );
 }
