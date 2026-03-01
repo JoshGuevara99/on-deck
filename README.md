@@ -26,11 +26,15 @@ pnpm install
 cp .env.example .env
 ```
 
-Edit `.env` and set your `DATABASE_URL`:
+Edit `.env` with your values:
 
-```
-DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/ondeck"
-```
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | e.g. `postgresql://localhost/ondeck` |
+| `CLERK_SECRET_KEY` | From [Clerk Dashboard → API Keys](https://dashboard.clerk.com/last-active?path=api-keys) |
+| `CLERK_PUBLISHABLE_KEY` | Same page — required by the Express API |
+| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Same key — Expo bundles this into the mobile app |
+| `EXPO_PUBLIC_API_URL` | `http://localhost:3000` for simulator; your LAN IP for a real device |
 
 ## Database
 
@@ -53,19 +57,18 @@ pnpm db:reset
 
 ## Running the app
 
-You need **two terminals** — the API and the mobile app are separate processes.
-
-**Terminal 1 — API (port 3000):**
 ```bash
-pnpm --filter @on-deck/api dev
+pnpm dev
 ```
 
-**Terminal 2 — Mobile (Expo, port 8081):**
-```bash
-pnpm --filter @on-deck/mobile dev
-```
+That's it. This starts the API (port 3000) and the Expo dev server (port 8081) in parallel. Press `i` in the terminal to open the iOS Simulator, or `a` for Android.
 
-Then in the Expo terminal press `i` (iOS Simulator) or `a` (Android Emulator).
+If you need to run them separately:
+
+```bash
+pnpm --filter @on-deck/api dev      # API only
+pnpm --filter @on-deck/mobile dev   # Mobile only
+```
 
 ### Connecting mobile to the API
 
