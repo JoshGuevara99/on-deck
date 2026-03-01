@@ -25,14 +25,14 @@ export default function ProfileScreen() {
   const isWide = width >= 768;
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { isSignedIn } = useAuth();
-  const { user } = useUser();
+  const { isLoaded, user } = useUser();
   const router = useRouter();
 
   const [myEvents, setMyEvents] = useState<MockEvent[]>([]);
   const [myEventsLoading, setMyEventsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isSignedIn || !user?.id) {
+    if (!isLoaded || !isSignedIn || !user?.id) {
       setMyEvents([]);
       return;
     }
@@ -42,7 +42,7 @@ export default function ProfileScreen() {
       .then(setMyEvents)
       .catch(() => setMyEvents([]))
       .finally(() => setMyEventsLoading(false));
-  }, [isSignedIn, user?.id]);
+  }, [isLoaded, isSignedIn, user?.id]);
 
   return (
     <SafeAreaView style={styles.safe}>
