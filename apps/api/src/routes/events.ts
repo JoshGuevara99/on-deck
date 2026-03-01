@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { getAuth } from '@clerk/express';
 import * as eventsService from '../services/events.service';
 import { ApiError } from '../middleware/errors';
+import { requireAuth } from '../middleware/auth';
 
 export const eventsRouter = Router();
 
@@ -51,6 +53,7 @@ const UpdateEventSchema = CreateEventSchema.omit({ venue: true }).partial();
 const ListQuerySchema = z.object({
   type: z.string().optional(),
   city: z.string().optional(),
+  submittedBy: z.string().optional(),
   tonight: z
     .string()
     .optional()
@@ -96,12 +99,11 @@ eventsRouter.get('/:id', async (req, res, next) => {
 });
 
 /** POST /events */
-eventsRouter.post('/', async (req, res, next) => {
+eventsRouter.post('/', requireAuth, async (req, res, next) => {
   try {
     const input = CreateEventSchema.parse(req.body);
-    // req.auth?.userId would come from Clerk middleware when added
-    const submittedBy = (req as any).auth?.userId ?? undefined;
-    const event = await eventsService.createEvent(input, submittedBy);
+    const { userId } = getAuth(req);
+    const event = await eventsService.createEvent(input, userId ?? undefined);
     res.status(201).json(event);
   } catch (err) {
     next(err);

@@ -115,4 +115,6 @@ export interface EventFilters {
   to?: string;
   limit?: number;
   offset?: number;
+  /** Filter by submitter's Clerk user ID */
+  submittedBy?: string;
 }

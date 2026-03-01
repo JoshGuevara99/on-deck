@@ -17,10 +17,12 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -75,14 +77,21 @@ export const apiClient = {
       if (filters.to) params.to = filters.to;
       if (filters.limit != null) params.limit = String(filters.limit);
       if (filters.offset != null) params.offset = String(filters.offset);
+      if (filters.submittedBy) params.submittedBy = filters.submittedBy;
 
       const data = await get<ApiEvent[]>('/events', params);
       return data.map(toMockEvent);
     },
 
-    async create(input: CreateEventInput): Promise<MockEvent> {
-      const data = await post<ApiEvent>('/events', input);
+    async create(input: CreateEventInput, token?: string): Promise<MockEvent> {
+      const data = await post<ApiEvent>('/events', input, token);
       return toMockEvent(data);
+    },
+  },
+
+  users: {
+    async sync(token: string, body: { email: string; name?: string }): Promise<void> {
+      await post<unknown>('/users/sync', body, token);
     },
   },
 };

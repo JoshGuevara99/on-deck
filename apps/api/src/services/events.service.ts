@@ -43,6 +43,11 @@ export async function listEvents(filters: EventFilters = {}) {
     where.coverCharge = { equals: 'Free', mode: 'insensitive' };
   }
 
+  // Filter by submitter
+  if (filters.submittedBy) {
+    where.submittedBy = filters.submittedBy;
+  }
+
   // Full-text search across title + description + genres
   if (filters.q) {
     const q = filters.q.trim();

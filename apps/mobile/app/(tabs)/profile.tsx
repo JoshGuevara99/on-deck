@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,15 @@ import {
   Switch,
   useWindowDimensions,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { SignOutButton } from '../../components/SignOutButton';
+import { apiClient } from '../../lib/api';
+import type { MockEvent } from '../../constants/mock-data';
 
 export default function ProfileScreen() {
   const { colors, theme, toggleTheme } = useTheme();
@@ -24,6 +27,22 @@ export default function ProfileScreen() {
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const router = useRouter();
+
+  const [myEvents, setMyEvents] = useState<MockEvent[]>([]);
+  const [myEventsLoading, setMyEventsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isSignedIn || !user?.id) {
+      setMyEvents([]);
+      return;
+    }
+    setMyEventsLoading(true);
+    apiClient.events
+      .list({ submittedBy: user.id })
+      .then(setMyEvents)
+      .catch(() => setMyEvents([]))
+      .finally(() => setMyEventsLoading(false));
+  }, [isSignedIn, user?.id]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -77,11 +96,11 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Sections */}
-        <ProfileSection
-          title="My Events"
-          icon="calendar-outline"
-          empty="No hosted events yet. Submit one and get on deck."
+        {/* My Events */}
+        <MyEventsSection
+          events={myEvents}
+          loading={myEventsLoading}
+          isSignedIn={!!isSignedIn}
           colors={colors}
         />
         <ProfileSection
@@ -137,6 +156,59 @@ export default function ProfileScreen() {
   );
 }
 
+function MyEventsSection({
+  events,
+  loading,
+  isSignedIn,
+  colors,
+}: {
+  events: MockEvent[];
+  loading: boolean;
+  isSignedIn: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <View style={sectionStyles.container}>
+      <View style={sectionStyles.header}>
+        <Ionicons name="calendar-outline" size={16} color={colors.gold} />
+        <Text style={[sectionStyles.title, { color: colors.text }]}>My Events</Text>
+      </View>
+      {loading ? (
+        <View style={[sectionStyles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <ActivityIndicator color={colors.gold} />
+        </View>
+      ) : !isSignedIn || events.length === 0 ? (
+        <View style={[sectionStyles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[sectionStyles.emptyText, { color: colors.textMuted }]}>
+            {isSignedIn
+              ? 'No hosted events yet. Submit one and get on deck.'
+              : 'Sign in to see your events.'}
+          </Text>
+        </View>
+      ) : (
+        <View style={[sectionStyles.listBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {events.map((event, idx) => (
+            <View
+              key={event.id}
+              style={[
+                sectionStyles.eventRow,
+                idx < events.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+              ]}
+            >
+              <Text style={[sectionStyles.eventTitle, { color: colors.text }]} numberOfLines={1}>
+                {event.title}
+              </Text>
+              <Text style={[sectionStyles.eventVenue, { color: colors.textMuted }]} numberOfLines={1}>
+                {event.venue.name}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function ProfileSection({
   title,
   icon,
@@ -185,6 +257,23 @@ const sectionStyles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  listBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  eventRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  eventTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  eventVenue: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });
 
