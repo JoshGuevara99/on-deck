@@ -7,7 +7,11 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+const ThemeContext = createContext<ThemeContextValue>({
+  colors: DARK_COLORS,
+  theme: 'dark',
+  toggleTheme: () => {},
+});
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>('dark');
@@ -25,7 +29,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used inside <ThemeProvider>');
-  return ctx;
+  return useContext(ThemeContext);
 }
