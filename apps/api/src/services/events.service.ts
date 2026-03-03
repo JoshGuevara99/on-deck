@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { findOrCreateVenue } from './venues.service';
-import type { CreateEventInput, UpdateEventInput, EventFilters } from '@on-deck/shared';
+import type { CreateEventInput, EventFilters } from '@on-deck/shared';
 
 /** Prisma select that always includes the venue inline. */
 const WITH_VENUE = {
@@ -69,10 +69,6 @@ export async function listEvents(filters: EventFilters = {}) {
   });
 }
 
-export async function getEvent(id: string) {
-  return prisma.event.findUniqueOrThrow({ where: { id }, ...WITH_VENUE });
-}
-
 export async function createEvent(input: CreateEventInput, submittedBy?: string) {
   const venue = await findOrCreateVenue(input.venue);
 
@@ -97,29 +93,3 @@ export async function createEvent(input: CreateEventInput, submittedBy?: string)
   });
 }
 
-export async function updateEvent(id: string, input: UpdateEventInput) {
-  return prisma.event.update({
-    where: { id },
-    data: {
-      ...(input.title !== undefined && { title: input.title }),
-      ...(input.description !== undefined && { description: input.description }),
-      ...(input.startsAt !== undefined && { startsAt: new Date(input.startsAt) }),
-      ...(input.endsAt !== undefined && { endsAt: new Date(input.endsAt) }),
-      ...(input.type !== undefined && { type: input.type }),
-      ...(input.genres !== undefined && { genres: input.genres }),
-      ...(input.coverCharge !== undefined && { coverCharge: input.coverCharge }),
-      ...(input.slotDuration !== undefined && { slotDuration: input.slotDuration }),
-      ...(input.backline !== undefined && { backline: input.backline }),
-      ...(input.signUpMethod !== undefined && { signUpMethod: input.signUpMethod }),
-      ...(input.isRecurring !== undefined && { isRecurring: input.isRecurring }),
-      ...(input.recurringDescription !== undefined && {
-        recurringDescription: input.recurringDescription,
-      }),
-    },
-    ...WITH_VENUE,
-  });
-}
-
-export async function deleteEvent(id: string) {
-  return prisma.event.delete({ where: { id } });
-}

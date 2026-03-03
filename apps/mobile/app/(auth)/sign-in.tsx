@@ -28,10 +28,7 @@ export default function SignInPage() {
         await setActive({
           session: signInAttempt.createdSessionId,
           navigate: async ({ session }) => {
-            if (session?.currentTask) {
-              console.log(session?.currentTask)
-              return
-            }
+            if (session?.currentTask) return
             router.replace('/')
           },
         })
@@ -68,10 +65,7 @@ export default function SignInPage() {
         await setActive({
           session: signInAttempt.createdSessionId,
           navigate: async ({ session }) => {
-            if (session?.currentTask) {
-              console.log(session?.currentTask)
-              return
-            }
+            if (session?.currentTask) return
             router.replace('/')
           },
         })

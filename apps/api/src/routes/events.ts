@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getAuth } from '@clerk/express';
 import * as eventsService from '../services/events.service';
-import { ApiError } from '../middleware/errors';
 import { requireAuth } from '../middleware/auth';
 
 export const eventsRouter = Router();
@@ -48,8 +47,6 @@ const CreateEventSchema = z.object({
   venue: VenueInputSchema,
 });
 
-const UpdateEventSchema = CreateEventSchema.omit({ venue: true }).partial();
-
 const ListQuerySchema = z.object({
   type: z.string().optional(),
   city: z.string().optional(),
@@ -88,16 +85,6 @@ eventsRouter.get('/', async (req, res, next) => {
   }
 });
 
-/** GET /events/:id */
-eventsRouter.get('/:id', async (req, res, next) => {
-  try {
-    const event = await eventsService.getEvent(req.params.id);
-    res.json(event);
-  } catch (err) {
-    next(err);
-  }
-});
-
 /** POST /events */
 eventsRouter.post('/', requireAuth, async (req, res, next) => {
   try {
@@ -110,23 +97,3 @@ eventsRouter.post('/', requireAuth, async (req, res, next) => {
   }
 });
 
-/** PATCH /events/:id */
-eventsRouter.patch('/:id', async (req, res, next) => {
-  try {
-    const input = UpdateEventSchema.parse(req.body);
-    const event = await eventsService.updateEvent(req.params.id, input);
-    res.json(event);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/** DELETE /events/:id */
-eventsRouter.delete('/:id', async (req, res, next) => {
-  try {
-    await eventsService.deleteEvent(req.params.id);
-    res.status(204).send();
-  } catch (err) {
-    next(err);
-  }
-});

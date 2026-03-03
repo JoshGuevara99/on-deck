@@ -46,10 +46,7 @@ export default function SignUpPage() {
         await setActive({
           session: signUpAttempt.createdSessionId,
           navigate: async ({ session }) => {
-            if (session?.currentTask) {
-              console.log(session?.currentTask)
-              return
-            }
+            if (session?.currentTask) return
             router.replace('/')
           },
         })
