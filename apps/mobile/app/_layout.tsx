@@ -44,7 +44,7 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <ClerkProvider tokenCache={tokenCache}>
+      <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!} tokenCache={tokenCache}>
         <LocationProvider>
           <EventsProvider>
             <AppShell />
