@@ -75,6 +75,24 @@ pnpm db:studio     # Open visual database browser at localhost:5555
 pnpm db:reset      # Wipe and re-migrate (destructive)
 ```
 
+## Infrastructure
+
+**Local development** uses a plain PostgreSQL database — no Docker required. Create the database once with `createdb ondeck`, set `DATABASE_URL` in `.env`, and run `pnpm db:migrate`.
+
+**Docker** is available for running Postgres and the API together via `docker compose up`. The compose topology mirrors production so local behavior stays consistent.
+
+**Kubernetes** manifests live in `k8s/`. The API is deployed as a `Deployment` with 2 replicas behind a `ClusterIP` service. Health check endpoints (`/health`) are wired to Kubernetes readiness and liveness probes, so the cluster only routes traffic to instances that are fully up. All secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`) are pulled from a Kubernetes `Secret` — no hardcoded credentials anywhere in the manifests.
+
+Migrating from local Postgres to a managed database (e.g. RDS, Cloud SQL) requires changing a single value: `database-url` in the Kubernetes secret.
+
+## Scalability
+
+The API is stateless by design — no in-memory sessions, no local file state. Every request is independently authenticated via JWT. This means:
+
+- **Horizontal scaling** is trivial: add more replicas to the Kubernetes `Deployment`, all instances are interchangeable.
+- **Zero-downtime deploys**: the readiness probe prevents traffic from hitting a new pod until it's ready.
+- **Database** is the single source of truth. All state lives in Postgres, so scaling the API layer never requires data migration or coordination between instances.
+
 ## Design Decisions
 
 **Monorepo with shared types** — `@on-deck/shared` exports TypeScript interfaces consumed by both the API and mobile app. A shape mismatch between what the API returns and what the mobile app expects is a compile-time error, not a runtime one.
