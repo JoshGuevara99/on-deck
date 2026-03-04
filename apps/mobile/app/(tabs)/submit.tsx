@@ -36,6 +36,8 @@ interface FormState {
   venueName: string;
   address: string;
   neighborhood: string;
+  city: string;
+  state: string;
   date: string;
   startTime: string;
   coverCharge: string;
@@ -48,6 +50,8 @@ interface FormErrors {
   title?: string;
   venueName?: string;
   address?: string;
+  city?: string;
+  state?: string;
   date?: string;
   startTime?: string;
 }
@@ -57,6 +61,8 @@ const INITIAL_FORM: FormState = {
   venueName: '',
   address: '',
   neighborhood: '',
+  city: '',
+  state: '',
   date: '',
   startTime: '',
   coverCharge: '',
@@ -70,6 +76,8 @@ function validate(form: FormState): FormErrors {
   if (!form.title.trim()) errors.title = 'Event title is required';
   if (!form.venueName.trim()) errors.venueName = 'Venue name is required';
   if (!form.address.trim()) errors.address = 'Address is required';
+  if (!form.city.trim()) errors.city = 'City is required';
+  if (!form.state.trim()) errors.state = 'State is required';
   if (!form.date.trim()) errors.date = 'Date is required';
   if (!form.startTime.trim()) errors.startTime = 'Start time is required';
   return errors;
@@ -104,8 +112,8 @@ function buildCreateInput(eventType: EventType, form: FormState): CreateEventInp
       name: form.venueName.trim(),
       address: form.address.trim(),
       neighborhood: form.neighborhood.trim() || undefined,
-      city: 'Austin',
-      state: 'TX',
+      city: form.city.trim(),
+      state: form.state.trim().toUpperCase(),
     },
   };
 }
@@ -492,6 +500,24 @@ export default function SubmitScreen() {
           placeholder="e.g. South Congress"
           value={form.neighborhood}
           onChangeText={(v) => setField('neighborhood', v)}
+          colors={colors}
+        />
+        <Field
+          label="City"
+          placeholder="e.g. Austin"
+          value={form.city}
+          onChangeText={(v) => setField('city', v)}
+          error={errors.city}
+          required
+          colors={colors}
+        />
+        <Field
+          label="State"
+          placeholder="e.g. TX"
+          value={form.state}
+          onChangeText={(v) => setField('state', v)}
+          error={errors.state}
+          required
           colors={colors}
         />
         <Field

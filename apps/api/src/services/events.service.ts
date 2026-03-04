@@ -17,9 +17,9 @@ export async function listEvents(filters: EventFilters = {}) {
     where.type = { in: types };
   }
 
-  // City filter
+  // City filter — event.city is backfilled from venue on all existing rows, populated on new ones
   if (filters.city) {
-    where.venue = { city: { equals: filters.city, mode: 'insensitive' } };
+    where.city = { equals: filters.city, mode: 'insensitive' };
   }
 
   // Tonight — events that start today (local midnight → next midnight)
@@ -75,6 +75,8 @@ export async function createEvent(input: CreateEventInput, submittedBy?: string)
   return prisma.event.create({
     data: {
       venueId: venue.id,
+      city: input.venue.city,
+      state: input.venue.state,
       title: input.title,
       description: input.description ?? null,
       startsAt: new Date(input.startsAt),

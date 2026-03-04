@@ -53,6 +53,8 @@ model Venue {
 model Event {
   id                   String       @id @default(cuid())
   venueId              String
+  city                 String?  // denormalized from venue for fast filtering
+  state                String?
   title                String
   description          String?
   startsAt             DateTime

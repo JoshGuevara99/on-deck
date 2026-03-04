@@ -35,6 +35,8 @@ export interface Venue {
 /** Event as returned by the API — venue is always included inline. */
 export interface ApiEvent {
   id: string;
+  city: string | null;
+  state: string | null;
   title: string;
   description: string | null;
   startsAt: string; // ISO-8601
