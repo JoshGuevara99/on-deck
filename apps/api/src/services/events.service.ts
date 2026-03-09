@@ -3,26 +3,36 @@ import { prisma } from '../lib/prisma';
 import { findOrCreateVenue } from './venues.service';
 import type { CreateEventInput, EventFilters } from '@on-deck/shared';
 
-/** Prisma select that always includes the venue inline. */
-const WITH_VENUE = {
-  include: { venue: true },
+/** Prisma select that always includes the venue + signup/attendee counts. */
+const WITH_VENUE_AND_COUNTS = {
+  include: {
+    venue: true,
+    _count: { select: { signups: true, attendees: true } },
+  },
 } satisfies Prisma.EventDefaultArgs;
+
+/** Shape the raw Prisma result into the ApiEvent shape (adds signupCount/attendeeCount). */
+function toApiEvent(event: Prisma.EventGetPayload<typeof WITH_VENUE_AND_COUNTS>) {
+  const { _count, ...rest } = event;
+  return {
+    ...rest,
+    signupCount: _count.signups,
+    attendeeCount: _count.attendees,
+  };
+}
 
 export async function listEvents(filters: EventFilters = {}) {
   const where: Prisma.EventWhereInput = { isApproved: true };
 
-  // Type filter — comma-separated e.g. "OPEN_MIC,JAM_SESSION"
   if (filters.type) {
     const types = filters.type.split(',').map((t) => t.trim()) as Prisma.EnumEventTypeFilter['in'];
     where.type = { in: types };
   }
 
-  // City filter — event.city is backfilled from venue on all existing rows, populated on new ones
   if (filters.city) {
     where.city = { equals: filters.city, mode: 'insensitive' };
   }
 
-  // Tonight — events that start today (local midnight → next midnight)
   if (filters.tonight) {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -31,24 +41,24 @@ export async function listEvents(filters: EventFilters = {}) {
     where.startsAt = { gte: todayStart, lt: todayEnd };
   }
 
-  // Date range filters (override tonight if both supplied)
   if (filters.from || filters.to) {
     where.startsAt = {};
     if (filters.from) where.startsAt.gte = new Date(filters.from);
     if (filters.to) where.startsAt.lte = new Date(filters.to);
   }
 
-  // Free events
   if (filters.free) {
     where.coverCharge = { equals: 'Free', mode: 'insensitive' };
   }
 
-  // Filter by submitter
   if (filters.submittedBy) {
     where.submittedBy = filters.submittedBy;
   }
 
-  // Full-text search across title + description + genres
+  if (filters.hostId) {
+    where.hostId = filters.hostId;
+  }
+
   if (filters.q) {
     const q = filters.q.trim();
     where.OR = [
@@ -60,19 +70,21 @@ export async function listEvents(filters: EventFilters = {}) {
     ];
   }
 
-  return prisma.event.findMany({
+  const events = await prisma.event.findMany({
     where,
-    ...WITH_VENUE,
+    ...WITH_VENUE_AND_COUNTS,
     orderBy: { startsAt: 'asc' },
     take: filters.limit ?? 50,
     skip: filters.offset ?? 0,
   });
+
+  return events.map(toApiEvent);
 }
 
 export async function createEvent(input: CreateEventInput, submittedBy?: string) {
   const venue = await findOrCreateVenue(input.venue);
 
-  return prisma.event.create({
+  const event = await prisma.event.create({
     data: {
       venueId: venue.id,
       city: input.venue.city,
@@ -90,8 +102,12 @@ export async function createEvent(input: CreateEventInput, submittedBy?: string)
       isRecurring: input.isRecurring ?? false,
       recurringDescription: input.recurringDescription ?? null,
       submittedBy: submittedBy ?? null,
+      hostId: submittedBy ?? null, // submitter becomes the host
+      signupsEnabled: input.signupsEnabled ?? false,
+      maxSlots: input.maxSlots ?? null,
     },
-    ...WITH_VENUE,
+    ...WITH_VENUE_AND_COUNTS,
   });
-}
 
+  return toApiEvent(event);
+}

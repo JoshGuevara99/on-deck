@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Switch,
   useWindowDimensions,
   StatusBar,
 } from 'react-native';
@@ -94,7 +95,12 @@ function toIso(dateStr: string, timeStr: string): string {
   return fallback.toISOString();
 }
 
-function buildCreateInput(eventType: EventType, form: FormState): CreateEventInput {
+function buildCreateInput(
+  eventType: EventType,
+  form: FormState,
+  signupsEnabled: boolean,
+  maxSlots: string,
+): CreateEventInput {
   const isRecurring = /every/i.test(form.date);
   return {
     title: form.title.trim(),
@@ -105,9 +111,11 @@ function buildCreateInput(eventType: EventType, form: FormState): CreateEventInp
     coverCharge: form.coverCharge.trim() || 'Free',
     slotDuration: form.slotDuration.trim() || undefined,
     backline: form.backline.trim() ? [form.backline.trim()] : [],
-    signUpMethod: 'DOOR',
+    signUpMethod: signupsEnabled ? 'APP' : 'DOOR',
     isRecurring,
     recurringDescription: isRecurring ? form.date.trim() : undefined,
+    signupsEnabled,
+    maxSlots: signupsEnabled && maxSlots.trim() ? parseInt(maxSlots.trim(), 10) : undefined,
     venue: {
       name: form.venueName.trim(),
       address: form.address.trim(),
@@ -370,6 +378,8 @@ export default function SubmitScreen() {
   const [submittedEvent, setSubmittedEvent] = useState<MockEvent | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [signupsEnabled, setSignupsEnabled] = useState(false);
+  const [maxSlots, setMaxSlots] = useState('10');
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -389,7 +399,7 @@ export default function SubmitScreen() {
       setSubmitting(true);
       setSubmitError(null);
       const token = await getToken();
-      const input = buildCreateInput(eventType, form);
+      const input = buildCreateInput(eventType, form, signupsEnabled, maxSlots);
       const newEvent = await addEvent(input, token ?? undefined);
       setSubmittedEvent(newEvent);
     } catch (e) {
@@ -567,6 +577,33 @@ export default function SubmitScreen() {
           multiline
           colors={colors}
         />
+
+        {/* Sign-up management toggle */}
+        <View style={[styles.signupsToggleCard, { backgroundColor: colors.surfaceHigh, borderColor: colors.border }]}>
+          <View style={styles.signupsToggleRow}>
+            <View style={styles.signupsToggleInfo}>
+              <Text style={[styles.signupsToggleLabel, { color: colors.text }]}>Enable performer sign-ups</Text>
+              <Text style={[styles.signupsToggleDesc, { color: colors.textMuted }]}>
+                Let performers sign up for slots directly in the app
+              </Text>
+            </View>
+            <Switch
+              value={signupsEnabled}
+              onValueChange={setSignupsEnabled}
+              trackColor={{ false: colors.border, true: colors.gold }}
+              thumbColor={colors.surface}
+            />
+          </View>
+          {signupsEnabled && (
+            <Field
+              label="Max Slots"
+              placeholder="e.g. 10"
+              value={maxSlots}
+              onChangeText={setMaxSlots}
+              colors={colors}
+            />
+          )}
+        </View>
 
         {submitError && (
           <Text style={[styles.submitError, { color: colors.jam }]}>{submitError}</Text>
@@ -764,6 +801,22 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginBottom: 8,
       marginTop: 12,
     },
+    signupsToggleCard: {
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 16,
+      marginTop: 16,
+      gap: 4,
+    },
+    signupsToggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    signupsToggleInfo: { flex: 1 },
+    signupsToggleLabel: { fontSize: 15, fontWeight: '600' },
+    signupsToggleDesc: { fontSize: 12, marginTop: 2, lineHeight: 17 },
     disclaimer: {
       fontSize: 12,
       color: colors.textMuted,

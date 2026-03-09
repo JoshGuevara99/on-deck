@@ -27,4 +27,9 @@ export interface MockEvent {
   coverCharge: string;
   slotDuration?: string;
   signUpMethod: 'door' | 'online' | 'app';
+  signupsEnabled: boolean;
+  maxSlots: number | null;
+  signupCount: number;
+  attendeeCount: number;
+  hostId: string | null;
 }

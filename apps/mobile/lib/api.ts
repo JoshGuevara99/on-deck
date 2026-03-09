@@ -1,4 +1,13 @@
-import type { ApiEvent, CreateEventInput, EventFilters } from '@on-deck/shared';
+import type {
+  ApiEvent,
+  CreateEventInput,
+  EventFilters,
+  EventSignup,
+  UpdateUserInput,
+  CreateSignupInput,
+  UpdateSignupInput,
+  User,
+} from '@on-deck/shared';
 import type { MockEvent, MockVenue } from '../constants/mock-data';
 
 const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').replace(/\/$/, '');
@@ -34,6 +43,26 @@ async function post<T>(path: string, body: unknown, token?: string): Promise<T> 
   return res.json() as Promise<T>;
 }
 
+async function patch<T>(path: string, body: unknown, token: string): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`PATCH ${path} → ${res.status}: ${text}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function del(path: string, token: string): Promise<void> {
+  const headers: Record<string, string> = { 'Authorization': `Bearer ${token}` };
+  const res = await fetch(`${API_URL}${path}`, { method: 'DELETE', headers });
+  if (!res.ok && res.status !== 204) throw new Error(`DELETE ${path} → ${res.status}`);
+}
+
 // ─── Shape conversion ─────────────────────────────────────────────────────────
 
 /** Map the API's ApiEvent into the MockEvent shape the UI components consume. */
@@ -65,6 +94,11 @@ function toMockEvent(e: ApiEvent): MockEvent {
     coverCharge: e.coverCharge ?? 'Free',
     slotDuration: e.slotDuration ?? undefined,
     signUpMethod: (e.signUpMethod.toLowerCase() as MockEvent['signUpMethod']),
+    signupsEnabled: e.signupsEnabled,
+    maxSlots: e.maxSlots,
+    signupCount: e.signupCount,
+    attendeeCount: e.attendeeCount,
+    hostId: e.hostId,
   };
 }
 
@@ -95,14 +129,60 @@ export const apiClient = {
     },
   },
 
+  signups: {
+    async get(eventId: string, token?: string): Promise<{ count: number } | EventSignup[]> {
+      return get(`/events/${eventId}/signups`, undefined, token);
+    },
+
+    async create(eventId: string, input: CreateSignupInput, token: string): Promise<EventSignup & { slotPosition: number }> {
+      return post(`/events/${eventId}/signups`, input, token);
+    },
+
+    async cancel(eventId: string, token: string): Promise<void> {
+      return del(`/events/${eventId}/signups`, token);
+    },
+
+    async update(eventId: string, signupId: string, input: UpdateSignupInput, token: string): Promise<EventSignup> {
+      return patch(`/events/${eventId}/signups/${signupId}`, input, token);
+    },
+  },
+
+  attendees: {
+    async rsvp(eventId: string, token: string): Promise<void> {
+      await post(`/events/${eventId}/attendees`, {}, token);
+    },
+
+    async cancel(eventId: string, token: string): Promise<void> {
+      return del(`/events/${eventId}/attendees`, token);
+    },
+  },
+
   users: {
     async sync(token: string, body: { email: string; name?: string }): Promise<void> {
       await post<unknown>('/users/sync', body, token);
     },
 
+    async me(token: string): Promise<User> {
+      return get<User>('/users/me', undefined, token);
+    },
+
+    async update(token: string, input: UpdateUserInput): Promise<User> {
+      return patch<User>('/users/me', input, token);
+    },
+
     async myEvents(token: string): Promise<MockEvent[]> {
       const data = await get<ApiEvent[]>('/users/me/events', undefined, token);
       return data.map(toMockEvent);
+    },
+
+    async mySignups(token: string): Promise<Array<EventSignup & { event: MockEvent }>> {
+      const data = await get<Array<EventSignup & { event: ApiEvent }>>('/users/me/signups', undefined, token);
+      return data.map((s) => ({ ...s, event: toMockEvent(s.event) }));
+    },
+
+    async myAttending(token: string): Promise<Array<{ id: string; event: MockEvent }>> {
+      const data = await get<Array<{ id: string; event: ApiEvent }>>('/users/me/attending', undefined, token);
+      return data.map((a) => ({ ...a, event: toMockEvent(a.event) }));
     },
   },
 };

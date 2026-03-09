@@ -44,6 +44,8 @@ const CreateEventSchema = z.object({
   signUpMethod: SignUpMethodEnum.optional().default('DOOR'),
   isRecurring: z.boolean().optional().default(false),
   recurringDescription: z.string().optional(),
+  signupsEnabled: z.boolean().optional().default(false),
+  maxSlots: z.number().int().min(1).optional(),
   venue: VenueInputSchema,
 });
 

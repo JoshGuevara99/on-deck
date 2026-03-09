@@ -1,9 +1,14 @@
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../context/ThemeContext';
 import { EventTypeBadge } from './EventTypeBadge';
+import { SignUpModal } from './SignUpModal';
 import { formatDayLabel, formatTime } from '../utils/date';
+import { apiClient } from '../lib/api';
 import type { MockEvent } from '../constants/mock-data';
+import type { CreateSignupInput } from '@on-deck/shared';
 
 interface Props {
   event: MockEvent;
@@ -13,8 +18,17 @@ interface Props {
 
 export function EventCard({ event, expanded = false, onPress }: Props) {
   const { colors } = useTheme();
+  const { isSignedIn, getToken } = useAuth();
   const accentColor = event.type === 'OPEN_MIC' ? colors.gold : colors.jam;
   const styles = makeStyles(colors);
+
+  const [signUpModalVisible, setSignUpModalVisible] = useState(false);
+  const [attendeeCount, setAttendeeCount] = useState(event.attendeeCount);
+  const [signupCount, setSignupCount] = useState(event.signupCount);
+  const [rsvped, setRsvped] = useState(false);
+
+  const slotsLeft = event.maxSlots != null ? event.maxSlots - signupCount : null;
+  const isFull = slotsLeft !== null && slotsLeft <= 0;
 
   const hasExpandedContent =
     (event.description && event.description.length > 0) ||
@@ -23,190 +37,287 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
     event.endsAt ||
     event.venue.instagramHandle;
 
-  return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.85}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${event.title} at ${event.venue.name}`}
-      accessibilityState={{ expanded }}
-    >
-      {/* Left accent bar */}
-      <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+  async function handleRsvp() {
+    if (!isSignedIn) {
+      Alert.alert('Sign in required', 'Create a free account to RSVP to events.');
+      return;
+    }
+    try {
+      const token = await getToken();
+      if (rsvped) {
+        await apiClient.attendees.cancel(event.id, token!);
+        setAttendeeCount((c) => Math.max(0, c - 1));
+        setRsvped(false);
+      } else {
+        await apiClient.attendees.rsvp(event.id, token!);
+        setAttendeeCount((c) => c + 1);
+        setRsvped(true);
+      }
+    } catch {
+      // Already RSVPed or network error — silently ignore
+    }
+  }
 
-      <View style={styles.content}>
-        {/* Badge + time + expand indicator */}
-        <View style={styles.headerRow}>
-          <EventTypeBadge type={event.type} />
-          <View style={styles.headerRight}>
-            <Text style={styles.time}>
-              {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
-            </Text>
-            {hasExpandedContent && (
-              <Ionicons
-                name={expanded ? 'chevron-up' : 'chevron-down'}
-                size={14}
-                color={colors.textMuted}
-                style={styles.chevron}
-              />
+  async function handleSignUp(input: CreateSignupInput) {
+    const token = await getToken();
+    const result = await apiClient.signups.create(event.id, input, token!);
+    setSignupCount((c) => c + 1);
+    return result;
+  }
+
+  function openSignUpModal() {
+    if (!isSignedIn) {
+      Alert.alert('Sign in required', 'Create a free account to sign up for a slot.');
+      return;
+    }
+    setSignUpModalVisible(true);
+  }
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.85}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${event.title} at ${event.venue.name}`}
+        accessibilityState={{ expanded }}
+      >
+        {/* Left accent bar */}
+        <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+
+        <View style={styles.content}>
+          {/* Badge + time + expand indicator */}
+          <View style={styles.headerRow}>
+            <EventTypeBadge type={event.type} />
+            <View style={styles.headerRight}>
+              <Text style={styles.time}>
+                {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
+              </Text>
+              {hasExpandedContent && (
+                <Ionicons
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={colors.textMuted}
+                  style={styles.chevron}
+                />
+              )}
+            </View>
+          </View>
+
+          {/* Title */}
+          <Text style={styles.title}>{event.title}</Text>
+
+          {/* Venue */}
+          <View style={styles.venueRow}>
+            <Ionicons name="location-sharp" size={13} color={accentColor} />
+            <Text style={styles.venueName}>{event.venue.name}</Text>
+            {event.venue.neighborhood ? (
+              <>
+                <Text style={styles.separator}>·</Text>
+                <Text style={styles.neighborhood}>{event.venue.neighborhood}</Text>
+              </>
+            ) : null}
+          </View>
+
+          {/* Genre tags */}
+          <View style={styles.genreRow}>
+            {(expanded ? event.genres : event.genres.slice(0, 3)).map((g) => (
+              <View key={g} style={styles.genreTag}>
+                <Text style={styles.genreText}>{g}</Text>
+              </View>
+            ))}
+            {!expanded && event.genres.length > 3 && (
+              <View style={[styles.genreTag, { borderStyle: 'dashed' }]}>
+                <Text style={styles.genreText}>+{event.genres.length - 3}</Text>
+              </View>
             )}
           </View>
-        </View>
 
-        {/* Title */}
-        <Text style={styles.title}>{event.title}</Text>
-
-        {/* Venue */}
-        <View style={styles.venueRow}>
-          <Ionicons name="location-sharp" size={13} color={accentColor} />
-          <Text style={styles.venueName}>{event.venue.name}</Text>
-          {event.venue.neighborhood ? (
-            <>
-              <Text style={styles.separator}>·</Text>
-              <Text style={styles.neighborhood}>{event.venue.neighborhood}</Text>
-            </>
+          {/* Description */}
+          {event.description ? (
+            <Text style={styles.description} numberOfLines={expanded ? undefined : 2}>
+              {event.description}
+            </Text>
           ) : null}
-        </View>
 
-        {/* Genre tags — show all when expanded, max 3 when collapsed */}
-        <View style={styles.genreRow}>
-          {(expanded ? event.genres : event.genres.slice(0, 3)).map((g) => (
-            <View key={g} style={styles.genreTag}>
-              <Text style={styles.genreText}>{g}</Text>
+          {/* ── Sign-up section ───────────────────────────────── */}
+          {event.signupsEnabled && (
+            <View style={styles.signupSection}>
+              {/* Counts row */}
+              <View style={styles.countsRow}>
+                {attendeeCount > 0 && (
+                  <View style={styles.countItem}>
+                    <Ionicons name="people-outline" size={13} color={colors.textMuted} />
+                    <Text style={styles.countText}>{attendeeCount} going</Text>
+                  </View>
+                )}
+                {signupCount > 0 && (
+                  <View style={styles.countItem}>
+                    <Ionicons name="mic-outline" size={13} color={colors.textMuted} />
+                    <Text style={styles.countText}>{signupCount} signed up</Text>
+                  </View>
+                )}
+                {slotsLeft !== null && (
+                  <View style={styles.countItem}>
+                    <Ionicons
+                      name={isFull ? 'lock-closed-outline' : 'ellipse-outline'}
+                      size={13}
+                      color={isFull ? colors.jam : colors.textMuted}
+                    />
+                    <Text style={[styles.countText, isFull && { color: colors.jam }]}>
+                      {isFull ? 'Full' : `${slotsLeft} left`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Action buttons */}
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnSecondary, rsvped && styles.actionBtnActive]}
+                  onPress={handleRsvp}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={rsvped ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                    size={15}
+                    color={rsvped ? colors.bg : colors.textSecondary}
+                  />
+                  <Text style={[styles.actionBtnText, rsvped && styles.actionBtnTextActive]}>
+                    {rsvped ? 'Going' : "I'm Going"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnPrimary, isFull && styles.actionBtnDisabled]}
+                  onPress={openSignUpModal}
+                  disabled={isFull}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="mic" size={15} color={isFull ? colors.textMuted : colors.bg} />
+                  <Text style={[styles.actionBtnPrimaryText, isFull && { color: colors.textMuted }]}>
+                    {isFull ? 'Full' : 'Sign Up to Perform'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          ))}
-          {!expanded && event.genres.length > 3 && (
-            <View style={[styles.genreTag, { borderStyle: 'dashed' }]}>
-              <Text style={styles.genreText}>+{event.genres.length - 3}</Text>
+          )}
+
+          {/* ── Expanded details ─────────────────────────────── */}
+          {expanded && (
+            <View style={styles.expandedSection}>
+              <View style={styles.detailRow}>
+                <Ionicons name="time-outline" size={14} color={accentColor} />
+                <Text style={styles.detailLabel}>Time</Text>
+                <Text style={styles.detailValue}>
+                  {formatTime(event.startsAt)}
+                  {event.endsAt ? ` – ${formatTime(event.endsAt)}` : ''}
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Ionicons name="map-outline" size={14} color={accentColor} />
+                <Text style={styles.detailLabel}>Address</Text>
+                <Text style={styles.detailValue}>{event.venue.address}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Ionicons name="hand-left-outline" size={14} color={accentColor} />
+                <Text style={styles.detailLabel}>Sign up</Text>
+                <Text style={styles.detailValue}>
+                  {event.signUpMethod === 'door'
+                    ? 'At the door'
+                    : event.signUpMethod === 'online'
+                    ? 'Online'
+                    : 'Via app'}
+                </Text>
+              </View>
+
+              {event.slotDuration && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="hourglass-outline" size={14} color={accentColor} />
+                  <Text style={styles.detailLabel}>Slot</Text>
+                  <Text style={styles.detailValue}>{event.slotDuration}</Text>
+                </View>
+              )}
+
+              <View style={styles.detailRow}>
+                <Ionicons
+                  name={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
+                  size={14}
+                  color={accentColor}
+                />
+                <Text style={styles.detailLabel}>Cover</Text>
+                <Text style={styles.detailValue}>{event.coverCharge}</Text>
+              </View>
+
+              {event.backline && event.backline.length > 0 && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="musical-notes-outline" size={14} color={accentColor} />
+                  <Text style={styles.detailLabel}>Backline</Text>
+                  <Text style={styles.detailValue}>{event.backline.join(', ')}</Text>
+                </View>
+              )}
+
+              {event.isRecurring && event.recurringDescription && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="repeat" size={14} color={accentColor} />
+                  <Text style={styles.detailLabel}>Recurring</Text>
+                  <Text style={styles.detailValue}>{event.recurringDescription}</Text>
+                </View>
+              )}
+
+              {event.venue.instagramHandle && (
+                <TouchableOpacity
+                  style={styles.detailRow}
+                  onPress={() => {
+                    const handle = event.venue.instagramHandle!.replace(/^@/, '');
+                    Linking.openURL(`https://instagram.com/${handle}`);
+                  }}
+                  accessibilityLabel={`Open ${event.venue.name} on Instagram`}
+                >
+                  <Ionicons name="logo-instagram" size={14} color={accentColor} />
+                  <Text style={styles.detailLabel}>Instagram</Text>
+                  <Text style={[styles.detailValue, styles.link]}>
+                    {event.venue.instagramHandle.startsWith('@')
+                      ? event.venue.instagramHandle
+                      : `@${event.venue.instagramHandle}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Footer chips — collapsed only */}
+          {!expanded && (
+            <View style={styles.footer}>
+              {event.isRecurring && event.recurringDescription && (
+                <FooterChip icon="repeat" label={event.recurringDescription} color={colors.textMuted} />
+              )}
+              {event.slotDuration && (
+                <FooterChip icon="time-outline" label={event.slotDuration} color={colors.textMuted} />
+              )}
+              <FooterChip
+                icon={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
+                label={event.coverCharge}
+                color={colors.textMuted}
+              />
+              {event.signUpMethod === 'door' && !event.signupsEnabled && (
+                <FooterChip icon="hand-left-outline" label="Sign up at door" color={colors.textMuted} />
+              )}
             </View>
           )}
         </View>
+      </TouchableOpacity>
 
-        {/* Description — 2 lines collapsed, full when expanded */}
-        {event.description ? (
-          <Text
-            style={styles.description}
-            numberOfLines={expanded ? undefined : 2}
-          >
-            {event.description}
-          </Text>
-        ) : null}
-
-        {/* ── Expanded details ─────────────────────────────── */}
-        {expanded && (
-          <View style={styles.expandedSection}>
-            {/* Time details */}
-            <View style={styles.detailRow}>
-              <Ionicons name="time-outline" size={14} color={accentColor} />
-              <Text style={styles.detailLabel}>Time</Text>
-              <Text style={styles.detailValue}>
-                {formatTime(event.startsAt)}
-                {event.endsAt ? ` – ${formatTime(event.endsAt)}` : ''}
-              </Text>
-            </View>
-
-            {/* Full address */}
-            <View style={styles.detailRow}>
-              <Ionicons name="map-outline" size={14} color={accentColor} />
-              <Text style={styles.detailLabel}>Address</Text>
-              <Text style={styles.detailValue}>{event.venue.address}</Text>
-            </View>
-
-            {/* Sign-up method */}
-            <View style={styles.detailRow}>
-              <Ionicons name="hand-left-outline" size={14} color={accentColor} />
-              <Text style={styles.detailLabel}>Sign up</Text>
-              <Text style={styles.detailValue}>
-                {event.signUpMethod === 'door'
-                  ? 'At the door'
-                  : event.signUpMethod === 'online'
-                  ? 'Online'
-                  : 'Via app'}
-              </Text>
-            </View>
-
-            {/* Slot duration */}
-            {event.slotDuration && (
-              <View style={styles.detailRow}>
-                <Ionicons name="hourglass-outline" size={14} color={accentColor} />
-                <Text style={styles.detailLabel}>Slot</Text>
-                <Text style={styles.detailValue}>{event.slotDuration}</Text>
-              </View>
-            )}
-
-            {/* Cover charge */}
-            <View style={styles.detailRow}>
-              <Ionicons
-                name={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
-                size={14}
-                color={accentColor}
-              />
-              <Text style={styles.detailLabel}>Cover</Text>
-              <Text style={styles.detailValue}>{event.coverCharge}</Text>
-            </View>
-
-            {/* Backline */}
-            {event.backline && event.backline.length > 0 && (
-              <View style={styles.detailRow}>
-                <Ionicons name="musical-notes-outline" size={14} color={accentColor} />
-                <Text style={styles.detailLabel}>Backline</Text>
-                <Text style={styles.detailValue}>{event.backline.join(', ')}</Text>
-              </View>
-            )}
-
-            {/* Recurring */}
-            {event.isRecurring && event.recurringDescription && (
-              <View style={styles.detailRow}>
-                <Ionicons name="repeat" size={14} color={accentColor} />
-                <Text style={styles.detailLabel}>Recurring</Text>
-                <Text style={styles.detailValue}>{event.recurringDescription}</Text>
-              </View>
-            )}
-
-            {/* Instagram */}
-            {event.venue.instagramHandle && (
-              <TouchableOpacity
-                style={styles.detailRow}
-                onPress={() => {
-                  const handle = event.venue.instagramHandle!.replace(/^@/, '');
-                  Linking.openURL(`https://instagram.com/${handle}`);
-                }}
-                accessibilityLabel={`Open ${event.venue.name} on Instagram`}
-              >
-                <Ionicons name="logo-instagram" size={14} color={accentColor} />
-                <Text style={styles.detailLabel}>Instagram</Text>
-                <Text style={[styles.detailValue, styles.link]}>
-                  {event.venue.instagramHandle.startsWith('@')
-                    ? event.venue.instagramHandle
-                    : `@${event.venue.instagramHandle}`}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Footer chips — shown when collapsed only */}
-        {!expanded && (
-          <View style={styles.footer}>
-            {event.isRecurring && event.recurringDescription && (
-              <FooterChip icon="repeat" label={event.recurringDescription} color={colors.textMuted} />
-            )}
-            {event.slotDuration && (
-              <FooterChip icon="time-outline" label={event.slotDuration} color={colors.textMuted} />
-            )}
-            <FooterChip
-              icon={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
-              label={event.coverCharge}
-              color={colors.textMuted}
-            />
-            {event.signUpMethod === 'door' && (
-              <FooterChip icon="hand-left-outline" label="Sign up at door" color={colors.textMuted} />
-            )}
-          </View>
-        )}
-      </View>
-    </TouchableOpacity>
+      <SignUpModal
+        event={event}
+        visible={signUpModalVisible}
+        onClose={() => setSignUpModalVisible(false)}
+        onSubmit={handleSignUp}
+      />
+    </>
   );
 }
 
@@ -220,14 +331,8 @@ function FooterChip({ icon, label, color }: { icon: string; label: string; color
 }
 
 const chipStyles = StyleSheet.create({
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  label: {
-    fontSize: 12,
-  },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  label: { fontSize: 12 },
 });
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
@@ -246,32 +351,16 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       shadowOpacity: 0.3,
       shadowRadius: 8,
     },
-    accentBar: {
-      width: 4,
-    },
-    content: {
-      flex: 1,
-      padding: 16,
-      gap: 10,
-    },
+    accentBar: { width: 4 },
+    content: { flex: 1, padding: 16, gap: 10 },
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    headerRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    time: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      fontWeight: '500',
-    },
-    chevron: {
-      marginLeft: 2,
-    },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    time: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+    chevron: { marginLeft: 2 },
     title: {
       fontSize: 20,
       fontWeight: '800',
@@ -279,30 +368,11 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       letterSpacing: -0.4,
       lineHeight: 26,
     },
-    venueRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      flexWrap: 'wrap',
-    },
-    venueName: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
-    separator: {
-      color: colors.border,
-      fontSize: 14,
-    },
-    neighborhood: {
-      fontSize: 14,
-      color: colors.textMuted,
-    },
-    genreRow: {
-      flexDirection: 'row',
-      gap: 6,
-      flexWrap: 'wrap',
-    },
+    venueRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
+    venueName: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
+    separator: { color: colors.border, fontSize: 14 },
+    neighborhood: { fontSize: 14, color: colors.textMuted },
+    genreRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
     genreTag: {
       paddingHorizontal: 9,
       paddingVertical: 3,
@@ -311,15 +381,54 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    genreText: {
-      fontSize: 11,
-      color: colors.textSecondary,
-      fontWeight: '500',
+    genreText: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
+    description: { fontSize: 13, color: colors.textMuted, lineHeight: 20 },
+    signupSection: {
+      gap: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
     },
-    description: {
-      fontSize: 13,
-      color: colors.textMuted,
-      lineHeight: 20,
+    countsRow: { flexDirection: 'row', gap: 14, flexWrap: 'wrap' },
+    countItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    countText: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
+    actionRow: { flexDirection: 'row', gap: 8 },
+    actionBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      paddingVertical: 9,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    actionBtnSecondary: {
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    actionBtnActive: {
+      backgroundColor: colors.gold,
+      borderColor: colors.gold,
+    },
+    actionBtnPrimary: {
+      backgroundColor: colors.jam,
+      borderColor: colors.jam,
+    },
+    actionBtnDisabled: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    actionBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    actionBtnTextActive: { color: colors.bg },
+    actionBtnPrimaryText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.bg,
     },
     expandedSection: {
       gap: 10,
@@ -328,11 +437,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    detailRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 8,
-    },
+    detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
     detailLabel: {
       fontSize: 13,
       color: colors.textMuted,
@@ -340,16 +445,8 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       width: 72,
       flexShrink: 0,
     },
-    detailValue: {
-      fontSize: 13,
-      color: colors.text,
-      flex: 1,
-      lineHeight: 18,
-    },
-    link: {
-      color: '#E1306C', // Instagram pink
-      fontWeight: '600',
-    },
+    detailValue: { fontSize: 13, color: colors.text, flex: 1, lineHeight: 18 },
+    link: { color: '#E1306C', fontWeight: '600' },
     footer: {
       flexDirection: 'row',
       flexWrap: 'wrap',

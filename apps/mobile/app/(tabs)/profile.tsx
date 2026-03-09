@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  TextInput,
   useWindowDimensions,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -18,6 +20,15 @@ import { useRouter } from 'expo-router';
 import { SignOutButton } from '../../components/SignOutButton';
 import { apiClient } from '../../lib/api';
 import type { MockEvent } from '../../constants/mock-data';
+import type { User, PerformerType } from '@on-deck/shared';
+
+const PERFORMER_TYPES: { value: PerformerType; label: string }[] = [
+  { value: 'MUSICIAN',    label: 'Musician' },
+  { value: 'COMEDIAN',    label: 'Comedian' },
+  { value: 'POET',        label: 'Poet' },
+  { value: 'STORYTELLER', label: 'Storyteller' },
+  { value: 'OTHER',       label: 'Other' },
+];
 
 export default function ProfileScreen() {
   const { colors, theme, toggleTheme } = useTheme();
@@ -28,26 +39,71 @@ export default function ProfileScreen() {
   const { isLoaded, user } = useUser();
   const router = useRouter();
 
+  const [profile, setProfile] = useState<User | null>(null);
   const [myEvents, setMyEvents] = useState<MockEvent[]>([]);
-  const [myEventsLoading, setMyEventsLoading] = useState(false);
+  const [mySignups, setMySignups] = useState<Array<{ event: MockEvent; status: string }>>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Identity edit state
+  const [editingIdentity, setEditingIdentity] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [performerType, setPerformerType] = useState<PerformerType | null>(null);
+  const [instruments, setInstruments] = useState('');
+  const [genres, setGenres] = useState('');
+  const [savingIdentity, setSavingIdentity] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!isSignedIn) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const [profileData, eventsData, signupsData] = await Promise.all([
+        apiClient.users.me(token),
+        apiClient.users.myEvents(token),
+        apiClient.users.mySignups(token),
+      ]);
+      setProfile(profileData);
+      setMyEvents(eventsData);
+      setMySignups(signupsData.map((s) => ({ event: s.event, status: s.status })));
+      // Seed edit fields
+      setDisplayName(profileData.displayName ?? '');
+      setBio(profileData.bio ?? '');
+      setPerformerType(profileData.performerType);
+      setInstruments((profileData.instruments ?? []).join(', '));
+      setGenres((profileData.genres ?? []).join(', '));
+    } catch {
+      // API unavailable
+    } finally {
+      setLoading(false);
+    }
+  }, [isSignedIn, getToken]);
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) {
-      setMyEvents([]);
-      return;
+    if (isLoaded) load();
+  }, [isLoaded, load]);
+
+  async function saveIdentity() {
+    const token = await getToken();
+    if (!token) return;
+    setSavingIdentity(true);
+    try {
+      const updated = await apiClient.users.update(token, {
+        displayName: displayName.trim() || undefined,
+        bio: bio.trim() || undefined,
+        performerType: performerType,
+        instruments: instruments.split(',').map((s) => s.trim()).filter(Boolean),
+        genres: genres.split(',').map((s) => s.trim()).filter(Boolean),
+      });
+      setProfile(updated);
+      setEditingIdentity(false);
+    } catch {
+      Alert.alert('Error', 'Could not save your profile. Try again.');
+    } finally {
+      setSavingIdentity(false);
     }
-    let cancelled = false;
-    setMyEventsLoading(true);
-    getToken()
-      .then((token) => {
-        if (!token) throw new Error('No token');
-        return apiClient.users.myEvents(token);
-      })
-      .then((events) => { if (!cancelled) setMyEvents(events); })
-      .catch(() => { if (!cancelled) setMyEvents([]); })
-      .finally(() => { if (!cancelled) setMyEventsLoading(false); });
-    return () => { cancelled = true; };
-  }, [isLoaded, isSignedIn]);
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -61,37 +117,44 @@ export default function ProfileScreen() {
       >
         <Text style={styles.heading}>Profile</Text>
 
-        {/* Auth CTA / signed-in state */}
+        {/* ── Auth card ──────────────────────────────── */}
         <View style={styles.authCard}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={34} color={colors.textMuted} />
           </View>
           {isSignedIn ? (
             <>
-              <Text style={styles.authTitle}>{user?.emailAddresses[0].emailAddress}</Text>
+              <Text style={styles.authTitle}>
+                {profile?.displayName || user?.emailAddresses[0].emailAddress}
+              </Text>
+              {profile?.performerType && (
+                <View style={[styles.typeBadge, { backgroundColor: `${colors.gold}20`, borderColor: `${colors.gold}50` }]}>
+                  <Text style={[styles.typeBadgeText, { color: colors.gold }]}>
+                    {PERFORMER_TYPES.find((t) => t.value === profile.performerType)?.label ?? profile.performerType}
+                  </Text>
+                </View>
+              )}
+              {profile?.performanceCount ? (
+                <Text style={styles.performanceCount}>
+                  {profile.performanceCount} performance{profile.performanceCount !== 1 ? 's' : ''}
+                </Text>
+              ) : null}
               <SignOutButton />
             </>
           ) : (
             <>
               <Text style={styles.authTitle}>Join the community</Text>
               <Text style={styles.authSub}>
-                Sign in to host events, save your favourites, and track your sets.
+                Sign in to host events, sign up for slots, and track your sets.
               </Text>
               <TouchableOpacity
                 style={[styles.signInBtn, { backgroundColor: colors.gold }]}
                 activeOpacity={0.85}
                 onPress={() => router.push('/(auth)/sign-in')}
-                accessibilityRole="button"
-                accessibilityLabel="Sign in"
               >
                 <Text style={[styles.signInText, { color: colors.bg }]}>Sign In</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => router.push('/(auth)/sign-up')}
-                accessibilityRole="link"
-                accessibilityLabel="Create an account"
-              >
+              <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(auth)/sign-up')}>
                 <Text style={styles.signUpLink}>
                   New here?{' '}
                   <Text style={[styles.signUpLinkAccent, { color: colors.gold }]}>Create an account</Text>
@@ -101,41 +164,272 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* My Events */}
-        <MyEventsSection
-          events={myEvents}
-          loading={myEventsLoading}
-          isSignedIn={!!isSignedIn}
-          colors={colors}
-        />
-        <ProfileSection
-          title="Saved"
-          icon="bookmark-outline"
-          empty="Tap the bookmark on any event to save it for later."
-          colors={colors}
-        />
-        <ProfileSection
-          title="Attended"
-          icon="checkmark-circle-outline"
-          empty="Events you've checked into will show up here."
-          colors={colors}
-        />
+        {/* ── Performer Identity ─────────────────────── */}
+        {isSignedIn && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="mic-outline" size={16} color={colors.gold} />
+                <Text style={styles.sectionTitle}>Performer Identity</Text>
+              </View>
+              {!editingIdentity && (
+                <TouchableOpacity onPress={() => setEditingIdentity(true)}>
+                  <Text style={[styles.editBtn, { color: colors.gold }]}>Edit</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-        {/* ── Settings ─────────────────────────────────── */}
-        <View style={styles.settingsSection}>
-          <View style={styles.settingsHeader}>
-            <Ionicons name="settings-outline" size={16} color={colors.gold} />
-            <Text style={styles.settingsTitle}>Settings</Text>
+            {editingIdentity ? (
+              <View style={[styles.identityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <FieldLabel text="Display Name" colors={colors} />
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  placeholder="How you appear to hosts"
+                  placeholderTextColor={colors.textMuted}
+                />
+
+                <FieldLabel text="I perform as" colors={colors} />
+                <View style={styles.typeGrid}>
+                  {PERFORMER_TYPES.map(({ value, label }) => (
+                    <TouchableOpacity
+                      key={value}
+                      style={[
+                        styles.typeChip,
+                        { borderColor: colors.border, backgroundColor: colors.surfaceHigh },
+                        performerType === value && { backgroundColor: colors.gold, borderColor: colors.gold },
+                      ]}
+                      onPress={() => setPerformerType(performerType === value ? null : value)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[
+                        styles.typeChipText,
+                        { color: colors.textSecondary },
+                        performerType === value && { color: colors.bg, fontWeight: '700' },
+                      ]}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {performerType === 'MUSICIAN' && (
+                  <>
+                    <FieldLabel text="Instruments" colors={colors} />
+                    <TextInput
+                      style={[styles.input, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                      value={instruments}
+                      onChangeText={setInstruments}
+                      placeholder="e.g. guitar, vocals, bass"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </>
+                )}
+
+                <FieldLabel text="Genres / Style" colors={colors} />
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                  value={genres}
+                  onChangeText={setGenres}
+                  placeholder="e.g. jazz, stand-up, spoken word"
+                  placeholderTextColor={colors.textMuted}
+                />
+
+                <FieldLabel text="Bio" colors={colors} />
+                <TextInput
+                  style={[styles.input, styles.inputMultiline, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                  value={bio}
+                  onChangeText={setBio}
+                  placeholder="A line about you..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+
+                <View style={styles.identityActions}>
+                  <TouchableOpacity
+                    style={[styles.cancelBtn, { borderColor: colors.border }]}
+                    onPress={() => setEditingIdentity(false)}
+                  >
+                    <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { backgroundColor: colors.gold }, savingIdentity && { opacity: 0.6 }]}
+                    onPress={saveIdentity}
+                    disabled={savingIdentity}
+                  >
+                    {savingIdentity
+                      ? <ActivityIndicator color={colors.bg} size="small" />
+                      : <Text style={[styles.saveBtnText, { color: colors.bg }]}>Save</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.identityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {profile?.bio ? (
+                  <Text style={[styles.bioText, { color: colors.textSecondary }]}>{profile.bio}</Text>
+                ) : null}
+                {profile?.instruments && profile.instruments.length > 0 && (
+                  <View style={styles.tagRow}>
+                    {profile.instruments.map((i) => (
+                      <View key={i} style={[styles.tag, { backgroundColor: `${colors.gold}15`, borderColor: `${colors.gold}40` }]}>
+                        <Text style={[styles.tagText, { color: colors.gold }]}>{i}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {profile?.genres && profile.genres.length > 0 && (
+                  <View style={styles.tagRow}>
+                    {profile.genres.map((g) => (
+                      <View key={g} style={[styles.tag, { backgroundColor: colors.surfaceHigh, borderColor: colors.border }]}>
+                        <Text style={[styles.tagText, { color: colors.textMuted }]}>{g}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {!profile?.bio && !profile?.instruments?.length && !profile?.genres?.length && (
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                    Tell hosts who you are — add your instruments, style, and a bio.
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
+        )}
 
-          <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {/* ── My Events (hosted) ──────────────────────── */}
+        {isSignedIn && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="calendar-outline" size={16} color={colors.gold} />
+                <Text style={styles.sectionTitle}>My Events</Text>
+              </View>
+            </View>
+            {loading ? (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <ActivityIndicator color={colors.gold} />
+              </View>
+            ) : myEvents.length === 0 ? (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  No events submitted yet. Go to Submit to add one.
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {myEvents.map((event, idx) => (
+                  <TouchableOpacity
+                    key={event.id}
+                    style={[
+                      styles.eventRow,
+                      idx < myEvents.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                    ]}
+                    onPress={() => router.push(`/roster/${event.id}` as any)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.eventRowLeft}>
+                      <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={1}>
+                        {event.title}
+                      </Text>
+                      <Text style={[styles.eventMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                        {event.venue.name}
+                        {event.signupsEnabled ? ` · ${event.signupCount} signed up` : ''}
+                      </Text>
+                    </View>
+                    {event.signupsEnabled && (
+                      <View style={styles.manageBtn}>
+                        <Text style={[styles.manageBtnText, { color: colors.gold }]}>Manage</Text>
+                        <Ionicons name="chevron-forward" size={14} color={colors.gold} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── My Sign-Ups ────────────────────────────── */}
+        {isSignedIn && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="mic-outline" size={16} color={colors.gold} />
+                <Text style={styles.sectionTitle}>My Sign-Ups</Text>
+              </View>
+            </View>
+            {loading ? (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <ActivityIndicator color={colors.gold} />
+              </View>
+            ) : mySignups.length === 0 ? (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  No upcoming sign-ups. Find an open mic and get on deck.
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {mySignups.map(({ event, status }, idx) => (
+                  <View
+                    key={event.id}
+                    style={[
+                      styles.eventRow,
+                      idx < mySignups.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <View style={styles.eventRowLeft}>
+                      <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={1}>
+                        {event.title}
+                      </Text>
+                      <Text style={[styles.eventMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                        {event.venue.name}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: status === 'PERFORMED'
+                          ? `${colors.gold}20`
+                          : `${colors.jam}20`,
+                        borderColor: status === 'PERFORMED'
+                          ? `${colors.gold}50`
+                          : `${colors.jam}50`,
+                      },
+                    ]}>
+                      <Text style={[
+                        styles.statusText,
+                        { color: status === 'PERFORMED' ? colors.gold : colors.jam },
+                      ]}>
+                        {status === 'SIGNED_UP' ? 'On list' : status === 'PERFORMED' ? 'Performed' : status}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Settings ───────────────────────────────── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <Ionicons name="settings-outline" size={16} color={colors.gold} />
+              <Text style={styles.sectionTitle}>Settings</Text>
+            </View>
+          </View>
+          <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
+              <View style={styles.settingLeft}>
                 <Ionicons
                   name={theme === 'dark' ? 'moon' : 'sunny'}
                   size={18}
                   color={colors.gold}
-                  style={styles.settingIcon}
                 />
                 <View>
                   <Text style={[styles.settingLabel, { color: colors.text }]}>
@@ -151,7 +445,6 @@ export default function ProfileScreen() {
                 onValueChange={toggleTheme}
                 trackColor={{ false: colors.border, true: colors.gold }}
                 thumbColor={colors.surface}
-                accessibilityLabel="Toggle dark mode"
               />
             </View>
           </View>
@@ -161,142 +454,27 @@ export default function ProfileScreen() {
   );
 }
 
-function MyEventsSection({
-  events,
-  loading,
-  isSignedIn,
-  colors,
-}: {
-  events: MockEvent[];
-  loading: boolean;
-  isSignedIn: boolean;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
+function FieldLabel({ text, colors }: { text: string; colors: ReturnType<typeof useTheme>['colors'] }) {
   return (
-    <View style={sectionStyles.container}>
-      <View style={sectionStyles.header}>
-        <Ionicons name="calendar-outline" size={16} color={colors.gold} />
-        <Text style={[sectionStyles.title, { color: colors.text }]}>My Events</Text>
-      </View>
-      {loading ? (
-        <View style={[sectionStyles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <ActivityIndicator color={colors.gold} />
-        </View>
-      ) : !isSignedIn || events.length === 0 ? (
-        <View style={[sectionStyles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[sectionStyles.emptyText, { color: colors.textMuted }]}>
-            {isSignedIn
-              ? 'No hosted events yet. Submit one and get on deck.'
-              : 'Sign in to see your events.'}
-          </Text>
-        </View>
-      ) : (
-        <View style={[sectionStyles.listBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {events.map((event, idx) => (
-            <View
-              key={event.id}
-              style={[
-                sectionStyles.eventRow,
-                idx < events.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-              ]}
-            >
-              <Text style={[sectionStyles.eventTitle, { color: colors.text }]} numberOfLines={1}>
-                {event.title}
-              </Text>
-              <Text style={[sectionStyles.eventVenue, { color: colors.textMuted }]} numberOfLines={1}>
-                {event.venue.name}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
+    <Text style={{
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.1,
+      textTransform: 'uppercase',
+      color: colors.textMuted,
+      marginTop: 14,
+      marginBottom: 8,
+    }}>
+      {text}
+    </Text>
   );
 }
-
-function ProfileSection({
-  title,
-  icon,
-  empty,
-  colors,
-}: {
-  title: string;
-  icon: string;
-  empty: string;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  return (
-    <View style={sectionStyles.container}>
-      <View style={sectionStyles.header}>
-        <Ionicons name={icon as any} size={16} color={colors.gold} />
-        <Text style={[sectionStyles.title, { color: colors.text }]}>{title}</Text>
-      </View>
-      <View style={[sectionStyles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[sectionStyles.emptyText, { color: colors.textMuted }]}>{empty}</Text>
-      </View>
-    </View>
-  );
-}
-
-const sectionStyles = StyleSheet.create({
-  container: {
-    marginBottom: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  emptyBox: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  listBox: {
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  eventRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  eventTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  eventVenue: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-});
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: {
-      flex: 1,
-      backgroundColor: colors.bg,
-    },
-    content: {
-      padding: 20,
-      paddingBottom: 48,
-    },
-    contentWide: {
-      maxWidth: 560,
-      alignSelf: 'center',
-      width: '100%',
-    },
+    safe: { flex: 1, backgroundColor: colors.bg },
+    content: { padding: 20, paddingBottom: 48 },
+    contentWide: { maxWidth: 560, alignSelf: 'center', width: '100%' },
     heading: {
       fontSize: 28,
       fontWeight: '800',
@@ -313,7 +491,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       padding: 24,
       alignItems: 'center',
       gap: 10,
-      marginBottom: 32,
+      marginBottom: 28,
     },
     avatar: {
       width: 76,
@@ -339,64 +517,121 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       lineHeight: 20,
       paddingHorizontal: 8,
     },
+    typeBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    typeBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    performanceCount: {
+      fontSize: 13,
+      color: colors.textMuted,
+    },
     signInBtn: {
       borderRadius: 12,
       paddingVertical: 14,
       paddingHorizontal: 48,
       marginTop: 6,
     },
-    signInText: {
-      fontSize: 15,
-      fontWeight: '800',
-      letterSpacing: 0.5,
-    },
-    signUpLink: {
-      fontSize: 13,
-      color: colors.textMuted,
-    },
-    signUpLinkAccent: {
-      fontWeight: '600',
-    },
-    settingsSection: {
-      marginBottom: 24,
-    },
-    settingsHeader: {
+    signInText: { fontSize: 15, fontWeight: '800', letterSpacing: 0.5 },
+    signUpLink: { fontSize: 13, color: colors.textMuted },
+    signUpLinkAccent: { fontWeight: '600' },
+    section: { marginBottom: 24 },
+    sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      justifyContent: 'space-between',
       marginBottom: 10,
     },
-    settingsTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    settingsCard: {
+    sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+    editBtn: { fontSize: 14, fontWeight: '600' },
+    identityCard: {
       borderRadius: 14,
       borderWidth: 1,
-      overflow: 'hidden',
+      padding: 16,
     },
+    bioText: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
+    tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
+    tag: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    tagText: { fontSize: 12, fontWeight: '500' },
+    input: {
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
+      fontSize: 15,
+    },
+    inputMultiline: { height: 80, paddingTop: 11 },
+    typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+    typeChip: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    typeChipText: { fontSize: 13, fontWeight: '600' },
+    identityActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+    cancelBtn: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    cancelBtnText: { fontSize: 14, fontWeight: '600' },
+    saveBtn: {
+      flex: 1,
+      borderRadius: 8,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    saveBtnText: { fontSize: 14, fontWeight: '800' },
+    emptyCard: {
+      borderRadius: 14,
+      borderWidth: 1,
+      padding: 20,
+      alignItems: 'center',
+    },
+    emptyText: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+    listCard: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+    eventRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+    },
+    eventRowLeft: { flex: 1, marginRight: 8 },
+    eventTitle: { fontSize: 14, fontWeight: '600' },
+    eventMeta: { fontSize: 12, marginTop: 2 },
+    manageBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    manageBtnText: { fontSize: 13, fontWeight: '700' },
+    statusBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    statusText: { fontSize: 11, fontWeight: '700' },
     settingRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: 16,
     },
-    settingInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    settingIcon: {
-      marginRight: 12,
-    },
-    settingLabel: {
-      fontSize: 15,
-      fontWeight: '600',
-    },
-    settingDesc: {
-      fontSize: 12,
-      marginTop: 1,
-    },
+    settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    settingLabel: { fontSize: 15, fontWeight: '600' },
+    settingDesc: { fontSize: 12, marginTop: 1 },
   });
 }

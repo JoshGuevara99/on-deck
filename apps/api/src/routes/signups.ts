@@ -1,0 +1,151 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { getAuth } from '@clerk/express';
+import { prisma } from '../lib/prisma';
+import { requireAuth } from '../middleware/auth';
+
+export const signupsRouter = Router({ mergeParams: true });
+
+const PerformerTypeEnum = z.enum(['MUSICIAN', 'COMEDIAN', 'POET', 'STORYTELLER', 'OTHER']);
+
+const CreateSignupSchema = z.object({
+  performerType: PerformerTypeEnum.optional(),
+  instruments: z.array(z.string()).optional().default([]),
+  genres: z.array(z.string()).optional().default([]),
+  note: z.string().max(280).optional(),
+});
+
+const UpdateSignupSchema = z.object({
+  slotOrder: z.number().int().min(0).optional(),
+  status: z.enum(['SIGNED_UP', 'PERFORMED', 'NO_SHOW', 'REMOVED']).optional(),
+});
+
+/** GET /events/:id/signups
+ * Public: returns count only.
+ * Host: returns full roster.
+ */
+signupsRouter.get('/', async (req, res, next) => {
+  try {
+    const { id: eventId } = req.params as { id: string };
+    const { userId } = getAuth(req);
+
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const isHost = userId && event.hostId === userId;
+
+    if (isHost) {
+      const signups = await prisma.eventSignup.findMany({
+        where: { eventId },
+        include: { user: { select: { id: true, displayName: true, name: true } } },
+        orderBy: [{ slotOrder: 'asc' }, { createdAt: 'asc' }],
+      });
+      return res.json(signups);
+    }
+
+    const count = await prisma.eventSignup.count({
+      where: { eventId, status: { not: 'REMOVED' } },
+    });
+    return res.json({ count });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** POST /events/:id/signups — sign up to perform */
+signupsRouter.post('/', requireAuth, async (req, res, next) => {
+  try {
+    const { id: eventId } = req.params as { id: string };
+    const { userId } = getAuth(req);
+    const input = CreateSignupSchema.parse(req.body);
+
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (!event.signupsEnabled) return res.status(400).json({ error: 'Sign-ups are not enabled for this event' });
+
+    // Check max slots
+    if (event.maxSlots !== null) {
+      const activeCount = await prisma.eventSignup.count({
+        where: { eventId, status: { not: 'REMOVED' } },
+      });
+      if (activeCount >= event.maxSlots) {
+        return res.status(409).json({ error: 'This event is full' });
+      }
+    }
+
+    const signup = await prisma.eventSignup.create({
+      data: {
+        eventId,
+        userId: userId as string,
+        performerType: input.performerType ?? null,
+        instruments: input.instruments,
+        genres: input.genres,
+        note: input.note ?? null,
+      },
+      include: { user: { select: { id: true, displayName: true, name: true } } },
+    });
+
+    // Return slot position
+    const position = await prisma.eventSignup.count({
+      where: { eventId, status: { not: 'REMOVED' }, createdAt: { lte: signup.createdAt } },
+    });
+
+    res.status(201).json({ ...signup, slotPosition: position });
+  } catch (err: any) {
+    if (err?.code === 'P2002') {
+      return res.status(409).json({ error: 'You are already signed up for this event' });
+    }
+    next(err);
+  }
+});
+
+/** DELETE /events/:id/signups — cancel your own signup */
+signupsRouter.delete('/', requireAuth, async (req, res, next) => {
+  try {
+    const { id: eventId } = req.params as { id: string };
+    const { userId } = getAuth(req);
+
+    await prisma.eventSignup.updateMany({
+      where: { eventId, userId: userId as string },
+      data: { status: 'REMOVED' },
+    });
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** PATCH /events/:id/signups/:signupId — host only: reorder or update status */
+signupsRouter.patch('/:signupId', requireAuth, async (req, res, next) => {
+  try {
+    const { id: eventId, signupId } = req.params as { id: string; signupId: string };
+    const { userId } = getAuth(req);
+    const input = UpdateSignupSchema.parse(req.body);
+
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (event.hostId !== userId) return res.status(403).json({ error: 'Only the host can update signups' });
+
+    const signup = await prisma.eventSignup.update({
+      where: { id: signupId },
+      data: {
+        ...(input.slotOrder !== undefined && { slotOrder: input.slotOrder }),
+        ...(input.status !== undefined && { status: input.status }),
+      },
+      include: { user: { select: { id: true, displayName: true, name: true } } },
+    });
+
+    // If marking as PERFORMED, increment the user's performanceCount
+    if (input.status === 'PERFORMED') {
+      await prisma.user.update({
+        where: { id: signup.userId },
+        data: { performanceCount: { increment: 1 } },
+      });
+    }
+
+    res.json(signup);
+  } catch (err) {
+    next(err);
+  }
+});
