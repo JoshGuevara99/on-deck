@@ -19,13 +19,41 @@ import { EventCard } from '../../components/EventCard';
 import { FilterChip } from '../../components/FilterChip';
 import { FilterModal, type ExtraFilters } from '../../components/FilterModal';
 import { CityPickerModal } from '../../components/CityPickerModal';
+import { CalendarModal } from '../../components/CalendarModal';
 import { SectionHeader } from '../../components/SectionHeader';
-import { isTonight } from '../../utils/date';
+import {
+  isSameDay,
+  isToday,
+  isTomorrow,
+  startOfDay,
+  endOfWeek,
+  endOfMonth,
+  formatSectionHeader,
+} from '../../utils/date';
 import type { EventType } from '@on-deck/shared';
+import type { MockEvent } from '../../constants/mock-data';
 
-type Filter = 'all' | EventType;
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const FILTERS: { label: string; value: Filter }[] = [
+type EventTypeFilter = 'all' | EventType;
+
+type DateFilter =
+  | { type: 'all' }
+  | { type: 'today' }
+  | { type: 'tomorrow' }
+  | { type: 'week' }
+  | { type: 'month' }
+  | { type: 'date'; date: Date };
+
+const DATE_CHIPS: { label: string; value: DateFilter }[] = [
+  { label: 'All',        value: { type: 'all' } },
+  { label: 'Tonight',    value: { type: 'today' } },
+  { label: 'Tomorrow',   value: { type: 'tomorrow' } },
+  { label: 'This Week',  value: { type: 'week' } },
+  { label: 'This Month', value: { type: 'month' } },
+];
+
+const TYPE_FILTERS: { label: string; value: EventTypeFilter }[] = [
   { label: 'All',         value: 'all' },
   { label: 'Open Mic',    value: 'OPEN_MIC' },
   { label: 'Jam Session', value: 'JAM_SESSION' },
@@ -37,6 +65,46 @@ const FILTERS: { label: string; value: Filter }[] = [
 
 const INITIAL_EXTRA_FILTERS: ExtraFilters = { tonightOnly: false, freeOnly: false };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function applyDateFilter(events: MockEvent[], filter: DateFilter): MockEvent[] {
+  const now = new Date();
+  switch (filter.type) {
+    case 'today':
+      return events.filter((e) => isToday(e.startsAt));
+    case 'tomorrow':
+      return events.filter((e) => isTomorrow(e.startsAt));
+    case 'week':
+      return events.filter((e) => e.startsAt <= endOfWeek(now));
+    case 'month':
+      return events.filter((e) => e.startsAt <= endOfMonth(now));
+    case 'date':
+      return events.filter((e) => isSameDay(e.startsAt, filter.date));
+    default:
+      return events;
+  }
+}
+
+/** Group events by calendar day, sorted ascending. */
+function groupByDay(events: MockEvent[]): { date: Date; events: MockEvent[] }[] {
+  const map = new Map<string, { date: Date; events: MockEvent[] }>();
+  for (const e of events) {
+    const key = startOfDay(e.startsAt).getTime().toString();
+    if (!map.has(key)) map.set(key, { date: startOfDay(e.startsAt), events: [] });
+    map.get(key)!.events.push(e);
+  }
+  return Array.from(map.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+function dateFilterLabel(filter: DateFilter): string | null {
+  if (filter.type === 'date') {
+    return filter.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  return null;
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function DiscoverScreen() {
   const { colors, theme } = useTheme();
   const { events, loading, error } = useEvents();
@@ -44,45 +112,61 @@ export default function DiscoverScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  const [activeFilter, setActiveFilter] = useState<Filter>('all');
+  const [typeFilter, setTypeFilter] = useState<EventTypeFilter>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'all' });
   const [searchQuery, setSearchQuery] = useState('');
   const [extraFilters, setExtraFilters] = useState<ExtraFilters>(INITIAL_EXTRA_FILTERS);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const activeExtraCount = Object.values(extraFilters).filter(Boolean).length;
 
   function toggleExpand(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
   }
 
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-
-  const activeExtraCount = Object.values(extraFilters).filter(Boolean).length;
+  // ── Filtering ──────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return events.filter((e) => {
-      if (activeFilter !== 'all' && e.type !== activeFilter) return false;
-      if (extraFilters.tonightOnly && !isTonight(e.startsAt)) return false;
+    let result = events.filter((e) => {
+      if (typeFilter !== 'all' && e.type !== typeFilter) return false;
       if (extraFilters.freeOnly && e.coverCharge !== 'Free') return false;
       if (q) {
-        const haystack = [
-          e.title,
-          e.venue.name,
-          e.venue.neighborhood,
-          ...e.genres,
-          e.description,
-        ]
+        const haystack = [e.title, e.venue.name, e.venue.neighborhood, ...e.genres, e.description]
           .join(' ')
           .toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [events, activeFilter, searchQuery, extraFilters]);
 
-  const tonight = useMemo(() => filtered.filter((e) => isTonight(e.startsAt)), [filtered]);
-  const upcoming = useMemo(() => filtered.filter((e) => !isTonight(e.startsAt)), [filtered]);
+    // tonightOnly from extra filters overrides dateFilter
+    if (extraFilters.tonightOnly) {
+      result = result.filter((e) => isToday(e.startsAt));
+    } else {
+      result = applyDateFilter(result, dateFilter);
+    }
+
+    return result;
+  }, [events, typeFilter, searchQuery, extraFilters, dateFilter]);
+
+  // ── Grouping ───────────────────────────────────────────────────────────────
+
+  // Single-day view: show flat list, no per-day headers needed (one header at top)
+  const isSingleDay = dateFilter.type === 'today' ||
+    dateFilter.type === 'tomorrow' ||
+    dateFilter.type === 'date' ||
+    extraFilters.tonightOnly;
+
+  const grouped = useMemo(() => groupByDay(filtered), [filtered]);
+
+  // ── Calendar active state ──────────────────────────────────────────────────
+
+  const calendarActive = dateFilter.type === 'date';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -91,14 +175,12 @@ export default function DiscoverScreen() {
         backgroundColor={colors.bg}
       />
 
-      {/* ── Loading overlay ────────────────────────────── */}
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={colors.gold} />
         </View>
       )}
 
-      {/* ── Offline / error banner ──────────────────────── */}
       {!loading && error && (
         <View style={[styles.errorBanner, { backgroundColor: `${colors.jam}18`, borderColor: colors.jam }]}>
           <Ionicons name="cloud-offline-outline" size={14} color={colors.jam} />
@@ -112,7 +194,7 @@ export default function DiscoverScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Header ─────────────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────────── */}
         <View style={styles.header}>
           <View>
             <Text style={styles.appName}>ON DECK</Text>
@@ -121,7 +203,6 @@ export default function DiscoverScreen() {
               onPress={() => setShowCityPicker(true)}
               activeOpacity={0.7}
               accessibilityLabel="Change city"
-              accessibilityRole="button"
             >
               <Ionicons name="location-sharp" size={12} color={colors.gold} />
               <Text style={styles.locationText}>
@@ -130,26 +211,49 @@ export default function DiscoverScreen() {
               <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={[styles.iconButton, activeExtraCount > 0 && styles.iconButtonActive]}
-            activeOpacity={0.7}
-            onPress={() => setShowFilterModal(true)}
-            accessibilityLabel={`Filter options${activeExtraCount > 0 ? `, ${activeExtraCount} active` : ''}`}
-          >
-            <Ionicons
-              name="options-outline"
-              size={20}
-              color={activeExtraCount > 0 ? colors.gold : colors.text}
-            />
-            {activeExtraCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeExtraCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+
+          <View style={styles.headerActions}>
+            {/* Calendar button */}
+            <TouchableOpacity
+              style={[styles.iconButton, calendarActive && styles.iconButtonActive]}
+              onPress={() => setShowCalendar(true)}
+              accessibilityLabel="Open calendar"
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={18}
+                color={calendarActive ? colors.gold : colors.text}
+              />
+              {calendarActive && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>
+                    {(dateFilter as { date: Date }).date.getDate()}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Extra filters button */}
+            <TouchableOpacity
+              style={[styles.iconButton, activeExtraCount > 0 && styles.iconButtonActive]}
+              onPress={() => setShowFilterModal(true)}
+              accessibilityLabel="Filter options"
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={activeExtraCount > 0 ? colors.gold : colors.text}
+              />
+              {activeExtraCount > 0 && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{activeExtraCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* ── Search ─────────────────────────────────────── */}
+        {/* ── Search ──────────────────────────────────────────── */}
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={16} color={colors.textMuted} />
           <TextInput
@@ -162,81 +266,110 @@ export default function DiscoverScreen() {
             clearButtonMode="while-editing"
             autoCorrect={false}
             autoCapitalize="none"
-            accessibilityLabel="Search events"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityLabel="Clear search">
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
               <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* ── Filter chips ───────────────────────────────── */}
+        {/* ── Date filter chips ────────────────────────────────── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.filterScroll}
           contentContainerStyle={styles.filterContent}
         >
-          {FILTERS.map((f) => (
+          {DATE_CHIPS.map((chip) => {
+            const active =
+              calendarActive
+                ? false
+                : dateFilter.type === chip.value.type;
+            return (
+              <FilterChip
+                key={chip.label}
+                label={chip.label}
+                active={active}
+                onPress={() => {
+                  setDateFilter(chip.value);
+                  setExtraFilters((f) => ({ ...f, tonightOnly: false }));
+                }}
+              />
+            );
+          })}
+
+          {/* Show selected calendar date as a chip */}
+          {calendarActive && (
+            <FilterChip
+              label={`📅 ${dateFilterLabel(dateFilter)}`}
+              active
+              onPress={() => setDateFilter({ type: 'all' })}
+            />
+          )}
+        </ScrollView>
+
+        {/* ── Event type chips ─────────────────────────────────── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterContent}
+        >
+          {TYPE_FILTERS.map((f) => (
             <FilterChip
               key={f.value}
               label={f.label}
-              active={activeFilter === f.value}
-              onPress={() => setActiveFilter(f.value)}
+              active={typeFilter === f.value}
+              onPress={() => setTypeFilter(f.value)}
             />
           ))}
         </ScrollView>
 
-        {/* ── Tonight ────────────────────────────────────── */}
-        {tonight.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader title="Tonight" subtitle={`${tonight.length} events`} />
-            {tonight.map((e) => (
-              <EventCard
-                key={e.id}
-                event={e}
-                expanded={expandedId === e.id}
-                onPress={() => toggleExpand(e.id)}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* ── Coming up ──────────────────────────────────── */}
-        {upcoming.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader title="Coming Up" subtitle={`${upcoming.length} events`} />
-            {upcoming.map((e) => (
-              <EventCard
-                key={e.id}
-                event={e}
-                expanded={expandedId === e.id}
-                onPress={() => toggleExpand(e.id)}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* ── Empty state ────────────────────────────────── */}
-        {filtered.length === 0 && (
+        {/* ── Events ──────────────────────────────────────────── */}
+        {grouped.length > 0 ? (
+          grouped.map(({ date, events: dayEvents }) => (
+            <View key={date.getTime()} style={styles.section}>
+              {!isSingleDay && (
+                <SectionHeader
+                  title={formatSectionHeader(date)}
+                  subtitle={`${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
+                />
+              )}
+              {isSingleDay && grouped.length === 1 && (
+                <SectionHeader
+                  title={formatSectionHeader(date)}
+                  subtitle={`${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
+                />
+              )}
+              {dayEvents.map((e) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  expanded={expandedId === e.id}
+                  onPress={() => toggleExpand(e.id)}
+                />
+              ))}
+            </View>
+          ))
+        ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="musical-notes-outline" size={52} color={colors.textMuted} />
+            <Ionicons name="calendar-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>Nothing on deck</Text>
             <Text style={styles.emptySub}>
               {searchQuery
                 ? `No results for "${searchQuery}"`
-                : 'Try a different filter or check back soon.'}
+                : 'Try a different date or filter.'}
             </Text>
-            {(searchQuery || activeExtraCount > 0) && (
+            {(searchQuery || dateFilter.type !== 'all' || typeFilter !== 'all' || activeExtraCount > 0) && (
               <TouchableOpacity
                 onPress={() => {
                   setSearchQuery('');
+                  setDateFilter({ type: 'all' });
+                  setTypeFilter('all');
                   setExtraFilters(INITIAL_EXTRA_FILTERS);
-                  setActiveFilter('all');
                 }}
                 style={styles.clearAllBtn}
-                accessibilityLabel="Clear all filters"
               >
                 <Text style={styles.clearAllText}>Clear filters</Text>
               </TouchableOpacity>
@@ -251,35 +384,31 @@ export default function DiscoverScreen() {
         onChange={setExtraFilters}
         onClose={() => setShowFilterModal(false)}
       />
-
       <CityPickerModal
         visible={showCityPicker}
         selectedCity={selectedCity}
         onSelect={setCity}
         onClose={() => setShowCityPicker(false)}
       />
+      <CalendarModal
+        visible={showCalendar}
+        events={events}
+        selectedDate={dateFilter.type === 'date' ? dateFilter.date : null}
+        onSelectDate={(date) => setDateFilter({ type: 'date', date })}
+        onClose={() => setShowCalendar(false)}
+      />
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: {
-      flex: 1,
-      backgroundColor: colors.bg,
-    },
-    scroll: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 16,
-      paddingBottom: 40,
-    },
-    scrollContentWide: {
-      maxWidth: 700,
-      alignSelf: 'center',
-      width: '100%',
-    },
+    safe: { flex: 1, backgroundColor: colors.bg },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
+    scrollContentWide: { maxWidth: 700, alignSelf: 'center', width: '100%' },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -304,6 +433,11 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       color: colors.textSecondary,
       fontWeight: '500',
     },
+    headerActions: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 4,
+    },
     iconButton: {
       width: 40,
       height: 40,
@@ -313,7 +447,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 4,
     },
     iconButtonActive: {
       borderColor: colors.gold,
@@ -323,15 +456,16 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       position: 'absolute',
       top: -4,
       right: -4,
-      width: 16,
+      minWidth: 16,
       height: 16,
       borderRadius: 8,
       backgroundColor: colors.gold,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingHorizontal: 3,
     },
     filterBadgeText: {
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: '800',
       color: colors.bg,
     },
@@ -345,22 +479,12 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       paddingVertical: 13,
       borderWidth: 1,
       borderColor: colors.border,
-      marginBottom: 16,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 14,
-      color: colors.text,
-    },
-    filterScroll: {
-      marginBottom: 24,
-    },
-    filterContent: {
-      paddingRight: 16,
-    },
-    section: {
       marginBottom: 12,
     },
+    searchInput: { flex: 1, fontSize: 14, color: colors.text },
+    filterScroll: { marginBottom: 12 },
+    filterContent: { paddingRight: 16 },
+    section: { marginBottom: 8 },
     emptyState: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -409,10 +533,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderRadius: 10,
       borderWidth: 1,
     },
-    errorBannerText: {
-      fontSize: 12,
-      fontWeight: '500',
-      flex: 1,
-    },
+    errorBannerText: { fontSize: 12, fontWeight: '500', flex: 1 },
   });
 }
