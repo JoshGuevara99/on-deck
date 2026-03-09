@@ -14,14 +14,17 @@ export default function TabLayout() {
           backgroundColor: colors.tabBar,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 62,
-          paddingBottom: 10,
-          paddingTop: 6,
+          height: 58,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
+          fontSize: 10,
+          fontWeight: '700',
+          letterSpacing: 0.8,
+          textTransform: 'uppercase',
         },
+        tabBarShowLabel: true,
         headerShown: false,
       }}
     >
@@ -29,8 +32,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Discover',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="compass-outline" size={22} color={color} />
           ),
         }}
       />
@@ -38,8 +41,8 @@ export default function TabLayout() {
         name="map"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="map-outline" size={22} color={color} />
           ),
         }}
       />
@@ -47,8 +50,8 @@ export default function TabLayout() {
         name="submit"
         options={{
           title: 'Submit',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="add-circle-outline" size={24} color={color} />
           ),
         }}
       />
@@ -56,8 +59,8 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="person-outline" size={22} color={color} />
           ),
         }}
       />

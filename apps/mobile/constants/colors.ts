@@ -1,44 +1,44 @@
 export const DARK_COLORS = {
-  // Backgrounds — deep, atmospheric dark
-  bg: '#0A0A12',
-  surface: '#121220',
-  surfaceHigh: '#1A1A2C',
+  // Backgrounds — warm deep blacks, like a late-night venue
+  bg: '#0D0A07',
+  surface: '#141109',
+  surfaceHigh: '#1C1812',
 
-  // Accents — warm stage-light tones
-  gold: '#F0A030',   // open mic
-  jam: '#E8553E',    // jam session
+  // Accents — electric stage energy
+  gold: '#FFB700',   // electric amber
+  jam: '#FF2D55',    // hot pink
 
-  // Text
-  text: '#EDEEF5',
-  textSecondary: '#8888AA',
-  textMuted: '#55556E',
+  // Text — warm cream, not cold white
+  text: '#F5EFE0',
+  textSecondary: '#9A8E7C',
+  textMuted: '#5A5248',
 
   // UI chrome
-  border: '#252540',
-  tabBar: '#0D0D1A',
+  border: '#2A231A',
+  tabBar: '#0A0806',
 
   // Status
-  live: '#4ADE80',
+  live: '#39FF14',   // neon green
 } as const;
 
 export const LIGHT_COLORS = {
   // Backgrounds
-  bg: '#FAFAFA',
+  bg: '#FAF7F2',
   surface: '#FFFFFF',
-  surfaceHigh: '#F2F2F7',
+  surfaceHigh: '#F0EBE3',
 
-  // Accents — slightly deeper for light-background contrast
-  gold: '#C8820A',
-  jam: '#C4402E',
+  // Accents
+  gold: '#D4960A',
+  jam: '#E01A47',
 
   // Text
-  text: '#0D0D1A',
-  textSecondary: '#44445A',
-  textMuted: '#888899',
+  text: '#120E0A',
+  textSecondary: '#5A4E42',
+  textMuted: '#9A8E7C',
 
   // UI chrome
-  border: '#E0E0EC',
-  tabBar: '#FFFFFF',
+  border: '#E8E0D4',
+  tabBar: '#FAF7F2',
 
   // Status
   live: '#16A34A',

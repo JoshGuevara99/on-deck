@@ -13,7 +13,8 @@ export function SectionHeader({ title, subtitle }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title.toUpperCase()}</Text>
-      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      <View style={styles.line} />
+      {subtitle && <Text style={styles.subtitle}>{subtitle.toUpperCase()}</Text>}
     </View>
   );
 }
@@ -22,19 +23,26 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
-      alignItems: 'baseline',
-      gap: 8,
-      marginBottom: 12,
-      marginTop: 4,
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+      marginTop: 8,
     },
     title: {
       fontSize: 11,
-      fontWeight: '700',
-      letterSpacing: 2,
-      color: colors.textMuted,
+      fontWeight: '800',
+      letterSpacing: 2.5,
+      color: colors.gold,
+    },
+    line: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
     },
     subtitle: {
-      fontSize: 12,
+      fontSize: 9,
+      fontWeight: '700',
+      letterSpacing: 1.5,
       color: colors.textMuted,
     },
   });

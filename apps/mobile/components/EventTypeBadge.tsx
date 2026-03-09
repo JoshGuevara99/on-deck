@@ -4,15 +4,14 @@ import { useTheme } from '../context/ThemeContext';
 
 const LABELS: Record<EventType, string> = {
   OPEN_MIC: 'Open Mic',
-  JAM_SESSION: 'Jam Session',
-  COMEDY_NIGHT: 'Comedy Night',
+  JAM_SESSION: 'Jam',
+  COMEDY_NIGHT: 'Comedy',
   POETRY_SLAM: 'Poetry Slam',
   OPEN_STAGE: 'Open Stage',
   WORKSHOP: 'Workshop',
   OPEN_STUDIO: 'Open Studio',
 };
 
-// Gold = performance/music types, Jam = everything else
 const GOLD_TYPES = new Set<EventType>(['OPEN_MIC', 'JAM_SESSION', 'OPEN_STAGE']);
 
 export function EventTypeBadge({ type }: { type: EventType }) {
@@ -20,8 +19,7 @@ export function EventTypeBadge({ type }: { type: EventType }) {
   const accentColor = GOLD_TYPES.has(type) ? colors.gold : colors.jam;
 
   return (
-    <View style={[styles.badge, { borderColor: accentColor }]}>
-      <View style={[styles.dot, { backgroundColor: accentColor }]} />
+    <View style={[styles.badge, { backgroundColor: `${accentColor}20`, borderColor: `${accentColor}50` }]}>
       <Text style={[styles.label, { color: accentColor }]}>{LABELS[type]}</Text>
     </View>
   );
@@ -29,24 +27,16 @@ export function EventTypeBadge({ type }: { type: EventType }) {
 
 const styles = StyleSheet.create({
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
   label: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
 });
