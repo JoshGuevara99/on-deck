@@ -30,6 +30,7 @@ export interface Venue {
   state: string;
   lat: number | null;
   lng: number | null;
+  instagramHandle: string | null;
 }
 
 /** Event as returned by the API — venue is always included inline. */

@@ -9,6 +9,7 @@ export interface MockVenue {
   state: string;
   lat?: number;
   lng?: number;
+  instagramHandle?: string;
 }
 
 export interface MockEvent {
@@ -16,6 +17,7 @@ export interface MockEvent {
   title: string;
   type: EventType;
   startsAt: Date;
+  endsAt?: Date;
   venue: MockVenue;
   description: string;
   genres: string[];

@@ -47,6 +47,7 @@ function toMockEvent(e: ApiEvent): MockEvent {
     state: e.state ?? e.venue.state,
     lat: e.venue.lat ?? undefined,
     lng: e.venue.lng ?? undefined,
+    instagramHandle: e.venue.instagramHandle ?? undefined,
   };
 
   return {
@@ -54,6 +55,7 @@ function toMockEvent(e: ApiEvent): MockEvent {
     title: e.title,
     type: e.type as MockEvent['type'],
     startsAt: new Date(e.startsAt),
+    endsAt: e.endsAt ? new Date(e.endsAt) : undefined,
     venue,
     description: e.description ?? '',
     genres: e.genres,
