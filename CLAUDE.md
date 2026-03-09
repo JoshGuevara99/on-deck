@@ -47,6 +47,11 @@ docker compose up postgres    # Postgres only
 docker compose down -v        # stop + remove volumes
 ```
 
+## Working style
+
+- If a process is running and you are actively thinking, planning, building, or making changes — keep going.
+- If you are purely waiting (e.g. sleeping before a retry, waiting for a rate limit to reset, polling) — stop the process and tell the user. Do not burn tokens on idle waiting.
+
 ## Architecture
 
 ### Monorepo layout

@@ -49,6 +49,11 @@ export default function DiscoverScreen() {
   const [extraFilters, setExtraFilters] = useState<ExtraFilters>(INITIAL_EXTRA_FILTERS);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  function toggleExpand(id: string) {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -188,7 +193,12 @@ export default function DiscoverScreen() {
           <View style={styles.section}>
             <SectionHeader title="Tonight" subtitle={`${tonight.length} events`} />
             {tonight.map((e) => (
-              <EventCard key={e.id} event={e} />
+              <EventCard
+                key={e.id}
+                event={e}
+                expanded={expandedId === e.id}
+                onPress={() => toggleExpand(e.id)}
+              />
             ))}
           </View>
         )}
@@ -198,7 +208,12 @@ export default function DiscoverScreen() {
           <View style={styles.section}>
             <SectionHeader title="Coming Up" subtitle={`${upcoming.length} events`} />
             {upcoming.map((e) => (
-              <EventCard key={e.id} event={e} />
+              <EventCard
+                key={e.id}
+                event={e}
+                expanded={expandedId === e.id}
+                onPress={() => toggleExpand(e.id)}
+              />
             ))}
           </View>
         )}

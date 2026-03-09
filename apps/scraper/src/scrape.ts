@@ -5,7 +5,9 @@ import type { CityTarget } from './cities';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// ─── Zod schema ───────────────────────────────────────────────────────────────
+const RATE_LIMIT_BACKOFF_MS = [20000, 40000, 65000]; // 20s, 40s, 65s on successive 429s
+
+// ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const EventTypeEnum = z.enum([
   'OPEN_MIC',
@@ -38,10 +40,12 @@ export const ScrapedEventSchema = z.object({
     neighborhood: z.string().optional(),
     city: z.string(),
     state: z.string(),
+    instagramHandle: z.string().optional(),
   }),
 });
 
 export type ScrapedEvent = z.infer<typeof ScrapedEventSchema>;
+
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -53,6 +57,42 @@ function maxDateStr(): string {
   return new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}// ─── Web search tool ──────────────────────────────────────────────────────────
+
+const WEB_SEARCH_TOOL: WebSearchTool20250305 = {
+  type: 'web_search_20250305',
+  name: 'web_search',
+};
+
+async function askClaude(prompt: string, attempt = 0): Promise<string> {
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      tools: [WEB_SEARCH_TOOL],
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const textBlocks = response.content.filter((b) => b.type === 'text');
+    if (textBlocks.length === 0) throw new Error('Claude returned no text content');
+    return textBlocks.map((b) => (b as { type: 'text'; text: string }).text).join('\n');
+  } catch (err) {
+    const isRateLimit =
+      err instanceof Anthropic.APIError && err.status === 429;
+
+    if (isRateLimit && attempt < RATE_LIMIT_BACKOFF_MS.length) {
+      const wait = RATE_LIMIT_BACKOFF_MS[attempt];
+      console.warn(`      Rate limited — waiting ${wait / 1000}s (retry ${attempt + 1})...`);
+      await sleep(wait);
+      return askClaude(prompt, attempt + 1);
+    }
+
+    throw err;
+  }
+}
+
 // ─── Prompt ───────────────────────────────────────────────────────────────────
 
 function buildPrompt(city: string, state: string): string {
@@ -60,137 +100,129 @@ function buildPrompt(city: string, state: string): string {
   const maxDate = maxDateStr();
 
   return `
-You are a research assistant helping populate a database of open mic and participatory performance events.
+You are systematically cataloguing participatory performance events in ${city}, ${state}.
 
-Target city: ${city}, ${state}
-Today's date: ${today}
-Only return events starting: on or after ${today} AND before ${maxDate} (90 days from now)
+Today: ${today}. Only return events starting on or after ${today} and before ${maxDate}.
 
-Search strategy — use ALL of the following:
-1. Meetup.com: search for "open mic" and "jam session" events in ${city}
-2. Eventbrite: search for open mic, jam session, and comedy open mic events in ${city}
-3. Reddit: search the local ${city} subreddit and music/comedy subreddits for open mic recommendations
-4. Web search: "${city} open mic night ${today.slice(0, 7)}", "${city} jam session weekly", "${city} comedy open mic"
-5. Venue websites and local event calendars specific to ${city}
+## Step 1 — Find venues
+Search for venues in ${city} that host participatory events where audience members can
+sign up to perform. Use multiple searches:
+- "${city} open mic venues"
+- "${city} karaoke bars"
+- "${city} comedy open mic"
+- "${city} jam session weekly"
+- "${city} poetry slam"
+- Reddit: local subreddits, r/${city.toLowerCase().replace(/\s+/g, '')}music etc.
 
-STRICT RULES — violating these means the event will be discarded:
-- startsAt MUST be on or after ${today} and before ${maxDate}
-- For recurring events: calculate the next specific occurrence on or after ${today} — do NOT use a past date
-- If you cannot determine a confident specific future date, OMIT the event
-- venue.city MUST be "${city}" exactly — do not include events in neighboring cities or suburbs
-- Only include events where performers can actively participate (sign up to perform, join a jam, etc.)
+Aim to identify 10–15 venues across different neighborhoods and event types.
+Include bars, clubs, coffee shops, theaters, comedy clubs, art spaces.
 
-SKIP these entirely:
-- Events that have already passed and are not recurring
-- Articles, listicles, or "best open mics in ${city}" roundups without specific dates
-- Venue pages that list open mics without confirmed current dates
-- Events that stopped running (no evidence they are still active)
-- Open mics more than 90 days away (too uncertain for recurring events)
+## Step 2 — Visit each venue's calendar
+For EACH venue you find, specifically search for and visit their event calendar or
+upcoming events page. Do NOT rely only on what came up in Step 1 searches.
 
-Quality over quantity. Return 5–10 high-confidence results rather than 15 uncertain ones.
-A verified recurring weekly event is more valuable than 3 guessed one-off events.
+Search: "[venue name] ${city} events calendar" or "[venue name] upcoming events"
 
-Return ONLY a JSON array. No markdown, no explanation, no code fences. Each element:
+Look at what's actually on the calendar for the next 90 days.
+
+## Step 3 — Extract ALL participatory events
+From each venue's calendar, extract every event where participants can get on stage:
+
+INCLUDE:
+- Open mics (music, comedy, spoken word, poetry)
+- Karaoke nights (e.g. "Karaoke Mondays")
+- Jam sessions (jazz, blues, rock, etc.)
+- Singer-songwriter showcases and rounds
+- Comedy open mics and open stages
+- Improv open mics and open stages
+- Poetry slams
+- Workshops where attendees perform or create
+- Open studios
+- Any weekly/monthly participatory recurring event
+
+DO NOT include: concerts where audience only watches, ticketed headline shows,
+DJ-only nights, trivia nights, sports screenings, happy hours.
+
+## Rules
+- startsAt must be >= ${today} and < ${maxDate}
+- For recurring events: set startsAt to the NEXT specific occurrence on or after ${today}
+- venue.city must be "${city}" — no suburbs or neighboring cities
+- If you cannot determine a specific future date with confidence, OMIT the event
+- Include the venue's Instagram handle if you find it on their site
+
+Return ONLY a valid JSON array. No markdown, no explanation, no code fences:
 
 [
   {
-    "title": "string — event name",
-    "description": "string — 1–2 sentences, omit if unavailable",
-    "startsAt": "ISO-8601 with timezone offset — e.g. ${today}T19:00:00-05:00",
-    "endsAt": "ISO-8601 with timezone offset, optional",
+    "title": "event name",
+    "description": "1–2 sentences — omit if unavailable",
+    "startsAt": "${today}T20:00:00-05:00",
+    "endsAt": "ISO-8601 optional",
     "type": "OPEN_MIC | JAM_SESSION | COMEDY_NIGHT | POETRY_SLAM | OPEN_STAGE | WORKSHOP | OPEN_STUDIO",
-    "genres": ["e.g. Jazz, Blues, Stand-up — empty array if unknown"],
-    "coverCharge": "e.g. Free, $5, $10 at door — omit if unknown",
-    "slotDuration": "e.g. 5 min, 3 songs — omit if unknown",
+    "genres": ["Jazz, Stand-up, etc. — empty array if unknown"],
+    "coverCharge": "Free or $5 etc. — omit if unknown",
+    "slotDuration": "5 min, 3 songs — omit if unknown",
     "backline": ["equipment provided — empty array if unknown"],
     "signUpMethod": "DOOR | ONLINE | APP",
     "isRecurring": true,
-    "recurringDescription": "e.g. Every Tuesday — omit if not recurring",
+    "recurringDescription": "Every Monday — omit if one-off",
     "venue": {
-      "name": "string — venue name",
-      "address": "string — full street address",
-      "neighborhood": "string — neighborhood name, optional",
+      "name": "venue name",
+      "address": "full street address",
+      "neighborhood": "neighborhood — omit if unknown",
       "city": "${city}",
-      "state": "${state}"
+      "state": "${state}",
+      "instagramHandle": "@handle — omit if not found"
     }
   }
 ]
 `.trim();
 }
 
-// ─── Web search ───────────────────────────────────────────────────────────────
+// ─── Parse + validate events ──────────────────────────────────────────────────
 
-const WEB_SEARCH_TOOL: WebSearchTool20250305 = {
-  type: 'web_search_20250305',
-  name: 'web_search',
-};
-
-async function searchWithClaude(city: string, state: string): Promise<string> {
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 8192,
-    tools: [WEB_SEARCH_TOOL],
-    messages: [{ role: 'user', content: buildPrompt(city, state) }],
-  });
-
-  const textBlocks = response.content.filter((b) => b.type === 'text');
-  if (textBlocks.length === 0) {
-    throw new Error('Claude returned no text content after searching');
-  }
-
-  return textBlocks.map((b) => (b as { type: 'text'; text: string }).text).join('\n');
-}
-
-// ─── Parse + validate ─────────────────────────────────────────────────────────
-
-function parseEvents(raw: string, city: string): ScrapedEvent[] {
-  const cleaned = raw
-    .replace(/^```(?:json)?\s*/m, '')
-    .replace(/\s*```$/m, '')
-    .trim();
+function parseEvents(raw: string, city: string, venueName: string): ScrapedEvent[] {
+  const cleaned = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);
   } catch {
     const match = cleaned.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error('Could not find a JSON array in Claude response');
-    parsed = JSON.parse(match[0]);
+    if (!match) return [];
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch {
+      return [];
+    }
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error('Expected a JSON array from Claude');
-  }
+  if (!Array.isArray(parsed)) return [];
 
   const now = Date.now();
   const maxMs = now + 90 * 24 * 60 * 60 * 1000;
-
   const valid: ScrapedEvent[] = [];
+
   for (const item of parsed) {
     const result = ScrapedEventSchema.safeParse(item);
     if (!result.success) {
-      console.warn(`  [skip] Schema validation failed:`, result.error.flatten().fieldErrors);
+      console.warn(`    [skip] Schema invalid at ${venueName}:`, result.error.flatten().fieldErrors);
       continue;
     }
 
     const event = result.data;
     const startsMs = new Date(event.startsAt).getTime();
 
-    // Reject past events
     if (startsMs < now) {
-      console.warn(`  [skip] Past event: "${event.title}" (${event.startsAt})`);
+      console.warn(`    [skip] Past: "${event.title}"`);
       continue;
     }
-
-    // Reject events too far in the future
     if (startsMs > maxMs) {
-      console.warn(`  [skip] Too far out: "${event.title}" (${event.startsAt})`);
+      console.warn(`    [skip] Too far out: "${event.title}"`);
       continue;
     }
-
-    // Reject wrong city (Claude sometimes drifts to suburbs)
     if (event.venue.city.toLowerCase() !== city.toLowerCase()) {
-      console.warn(`  [skip] Wrong city: "${event.title}" is in ${event.venue.city}, not ${city}`);
+      console.warn(`    [skip] Wrong city: "${event.title}" (${event.venue.city})`);
       continue;
     }
 
@@ -203,9 +235,10 @@ function parseEvents(raw: string, city: string): ScrapedEvent[] {
 // ─── Public ───────────────────────────────────────────────────────────────────
 
 export async function scrapeEventsForCity(target: CityTarget): Promise<ScrapedEvent[]> {
-  console.log(`  Searching the web for ${target.city}, ${target.state}...`);
-  const raw = await searchWithClaude(target.city, target.state);
-  const events = parseEvents(raw, target.city);
-  console.log(`  Found ${events.length} valid events after parsing`);
+  const { city, state } = target;
+  console.log(`  Searching venues + calendars in ${city}...`);
+  const raw = await askClaude(buildPrompt(city, state));
+  const events = parseEvents(raw, city, city);
+  console.log(`  Found ${events.length} valid events`);
   return events;
 }

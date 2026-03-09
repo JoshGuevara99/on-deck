@@ -17,7 +17,16 @@ async function upsertVenue(v: ScrapedEvent['venue']) {
     },
   });
 
-  if (existing) return existing;
+  if (existing) {
+    // Backfill Instagram handle if we found one and the record doesn't have it yet
+    if (v.instagramHandle && !existing.instagramHandle) {
+      return prisma.venue.update({
+        where: { id: existing.id },
+        data: { instagramHandle: v.instagramHandle },
+      });
+    }
+    return existing;
+  }
 
   return prisma.venue.create({
     data: {
@@ -26,6 +35,7 @@ async function upsertVenue(v: ScrapedEvent['venue']) {
       neighborhood: v.neighborhood ?? null,
       city: v.city,
       state: v.state,
+      instagramHandle: v.instagramHandle ?? null,
     },
   });
 }
