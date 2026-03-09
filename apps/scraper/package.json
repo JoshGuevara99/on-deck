@@ -1,0 +1,20 @@
+{
+  "name": "@on-deck/scraper",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "scrape": "cd ../.. && tsx apps/scraper/src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@prisma/client": "^6.0.0",
+    "dotenv": "^16.4.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

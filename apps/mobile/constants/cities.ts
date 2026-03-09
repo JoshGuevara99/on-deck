@@ -213,4 +213,4 @@ export const PRESET_CITIES: CityOption[] = [
   { city: 'Joliet',           label: 'Joliet, IL',              lat: 41.5250,  lng: -88.0817  },
 ];
 
-export const DEFAULT_CITY = PRESET_CITIES[0]; // Austin, TX
+export const DEFAULT_CITY = PRESET_CITIES[0]; // New York, NY

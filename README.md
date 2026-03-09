@@ -102,3 +102,6 @@ The API is stateless by design — no in-memory sessions, no local file state. E
 **Stateless API** — no server-side sessions. Every request is authenticated via JWT. Any number of API instances can run behind a load balancer without coordination.
 
 **Offline resilience** — if the API is unreachable, the mobile app falls back to local mock data and shows a banner rather than crashing.
+
+
+asdlf9L-BKS99039-cB
