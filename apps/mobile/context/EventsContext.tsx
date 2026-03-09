@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { MOCK_EVENTS, type MockEvent } from '../constants/mock-data';
+import type { MockEvent } from '../constants/mock-data';
 import { apiClient } from '../lib/api';
 import { useLocation } from './LocationContext';
 import type { CreateEventInput } from '@on-deck/shared';
@@ -16,7 +16,7 @@ const EventsContext = createContext<EventsContextValue | null>(null);
 
 export function EventsProvider({ children }: { children: React.ReactNode }) {
   const { selectedCity } = useLocation();
-  const [events, setEvents] = useState<MockEvent[]>(MOCK_EVENTS);
+  const [events, setEvents] = useState<MockEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,10 +27,9 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
       const data = await apiClient.events.list({ city: selectedCity?.city });
       setEvents(data);
     } catch (e) {
-      // API unreachable — keep mock data so the UI still works offline
-      console.warn('API unavailable, using mock data:', e);
-      setError('Could not reach the server. Showing cached data.');
-      setEvents(MOCK_EVENTS);
+      console.warn('API unavailable:', e);
+      setError('Could not reach the server. Check your connection.');
+      setEvents([]);
     } finally {
       setLoading(false);
     }
