@@ -18,9 +18,50 @@ Discover and submit open mics, jam sessions, comedy nights, poetry slams, and ot
 apps/
   api/        Express REST API (port 3000)
   mobile/     Expo mobile app (port 8081)
+  scraper/    AI-powered event scraper (run manually or on a schedule)
 packages/
   shared/     TypeScript types shared between API and mobile
 prisma/       Database schema and migrations
+```
+
+## Event Scraper
+
+The scraper uses Claude (with web search) to find real open mic and jam session listings, validate them, and insert them into the database. It runs as a standalone script — nothing in the API or mobile app triggers it automatically.
+
+```bash
+# Scrape all 14 supported cities
+pnpm --filter @on-deck/scraper scrape
+
+# Scrape a single city
+pnpm --filter @on-deck/scraper scrape -- --city "Austin"
+pnpm --filter @on-deck/scraper scrape -- --city "New York"
+```
+
+Requires `ANTHROPIC_API_KEY` in `.env`.
+
+**What it does on each run:**
+1. Deletes past events that the scraper previously inserted (keeps the DB clean)
+2. Skips any city scraped within the last 20 hours (cooldown prevents redundant API calls)
+3. Asks Claude to search the web for upcoming events in each city
+4. Rejects events that are in the past, more than 90 days out, or in the wrong city
+5. Upserts venues and inserts deduplicated events into the database
+6. Records each run in `ScraperRun` for cooldown tracking
+
+**If something goes wrong:**
+- A failed city is logged and skipped — other cities in the run continue
+- Events that fail validation are logged and skipped individually
+- Past events that slip through the search results are caught at ingest time and rejected
+- User-submitted events (`submittedBy != null`) are never touched by the age-off step
+- Re-running the scraper is always safe — duplicates are detected by venue + title + date
+
+**Verifying a run:**
+```bash
+# See what's in the database
+pnpm db:studio
+
+# Or query directly
+psql ondeck -c "SELECT city, COUNT(*) FROM \"Event\" GROUP BY city ORDER BY city;"
+psql ondeck -c "SELECT city, state, \"ranAt\", inserted, skipped FROM \"ScraperRun\" ORDER BY \"ranAt\" DESC LIMIT 20;"
 ```
 
 ## Prerequisites
@@ -52,6 +93,7 @@ pnpm db:migrate
 | `CLERK_PUBLISHABLE_KEY` | Same page |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Same key — bundled into the mobile app by Expo |
 | `EXPO_PUBLIC_API_URL` | `http://localhost:3000` for simulator, your LAN IP for a real device |
+| `ANTHROPIC_API_KEY` | From [console.anthropic.com](https://console.anthropic.com) — required for the scraper |
 
 ## Running
 
@@ -101,7 +143,7 @@ The API is stateless by design — no in-memory sessions, no local file state. E
 
 **Stateless API** — no server-side sessions. Every request is authenticated via JWT. Any number of API instances can run behind a load balancer without coordination.
 
-**Offline resilience** — if the API is unreachable, the mobile app falls back to local mock data and shows a banner rather than crashing.
+**Offline resilience** — if the API is unreachable, the mobile app shows an error banner rather than crashing.
 
+**Scraper safety** — the scraper never modifies user-submitted events. Age-off, deduplication, and city validation all operate only on auto-scraped records.
 
-asdlf9L-BKS99039-cB

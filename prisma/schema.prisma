@@ -50,6 +50,17 @@ model Venue {
   events Event[]
 }
 
+model ScraperRun {
+  id       String   @id @default(cuid())
+  city     String
+  state    String
+  ranAt    DateTime @default(now())
+  inserted Int
+  skipped  Int
+
+  @@index([city, state, ranAt])
+}
+
 model Event {
   id                   String       @id @default(cuid())
   venueId              String

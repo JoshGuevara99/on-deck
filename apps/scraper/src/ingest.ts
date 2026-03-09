@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import type { ScrapedEvent } from './scrape';
+import type { CityTarget } from './cities';
 
 const prisma = new PrismaClient();
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+export { prisma };
 
-/** Find or create a venue by name + city, matching case-insensitively. */
+// ─── Venue upsert ─────────────────────────────────────────────────────────────
+
 async function upsertVenue(v: ScrapedEvent['venue']) {
   const existing = await prisma.venue.findFirst({
     where: {
@@ -28,12 +30,14 @@ async function upsertVenue(v: ScrapedEvent['venue']) {
   });
 }
 
-/** Check for a duplicate event (same venue + title + same calendar day). */
+// ─── Duplicate check ──────────────────────────────────────────────────────────
+
+/** Returns true if an event with the same venue + title already exists on the same calendar day. */
 async function isDuplicate(venueId: string, title: string, startsAt: Date): Promise<boolean> {
   const dayStart = new Date(startsAt);
-  dayStart.setHours(0, 0, 0, 0);
+  dayStart.setUTCHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
   const count = await prisma.event.count({
     where: {
@@ -46,6 +50,44 @@ async function isDuplicate(venueId: string, title: string, startsAt: Date): Prom
   return count > 0;
 }
 
+// ─── Age-off ──────────────────────────────────────────────────────────────────
+
+/**
+ * Delete scraped events that have already passed.
+ * Only removes auto-approved events (submittedBy = null) to protect user-submitted content.
+ */
+export async function ageOffStaleEvents(): Promise<number> {
+  const cutoff = new Date();
+  const result = await prisma.event.deleteMany({
+    where: {
+      startsAt: { lt: cutoff },
+      submittedBy: null, // only delete scraper-sourced events
+    },
+  });
+  return result.count;
+}
+
+// ─── ScraperRun helpers ───────────────────────────────────────────────────────
+
+const COOLDOWN_HOURS = 20;
+
+/** Returns true if this city was successfully scraped within the cooldown window. */
+export async function wasRecentlyScraped(city: string, state: string): Promise<boolean> {
+  const since = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000);
+  const run = await prisma.scraperRun.findFirst({
+    where: {
+      city: { equals: city, mode: 'insensitive' },
+      state: { equals: state, mode: 'insensitive' },
+      ranAt: { gte: since },
+    },
+  });
+  return run !== null;
+}
+
+async function recordRun(city: string, state: string, inserted: number, skipped: number) {
+  await prisma.scraperRun.create({ data: { city, state, inserted, skipped } });
+}
+
 // ─── Public ───────────────────────────────────────────────────────────────────
 
 export interface IngestResult {
@@ -53,17 +95,29 @@ export interface IngestResult {
   skipped: number;
 }
 
-export async function ingestEvents(events: ScrapedEvent[]): Promise<IngestResult> {
+export async function ingestEvents(
+  events: ScrapedEvent[],
+  target: CityTarget,
+): Promise<IngestResult> {
   let inserted = 0;
   let skipped = 0;
+  const now = Date.now();
 
   for (const event of events) {
     try {
-      const venue = await upsertVenue(event.venue);
       const startsAt = new Date(event.startsAt);
 
+      // Safety net: reject past events that slipped through scrape.ts
+      if (startsAt.getTime() < now) {
+        console.log(`  [skip] Past event (ingest guard): "${event.title}"`);
+        skipped++;
+        continue;
+      }
+
+      const venue = await upsertVenue(event.venue);
+
       if (await isDuplicate(venue.id, event.title, startsAt)) {
-        console.log(`  [skip] "${event.title}" already exists`);
+        console.log(`  [skip] Duplicate: "${event.title}"`);
         skipped++;
         continue;
       }
@@ -86,7 +140,7 @@ export async function ingestEvents(events: ScrapedEvent[]): Promise<IngestResult
           isRecurring: event.isRecurring,
           recurringDescription: event.recurringDescription ?? null,
           submittedBy: null,
-          isApproved: true, // auto-approve AI-scraped events for now
+          isApproved: true,
         },
       });
 
@@ -98,6 +152,10 @@ export async function ingestEvents(events: ScrapedEvent[]): Promise<IngestResult
     }
   }
 
-  await prisma.$disconnect();
+  await recordRun(target.city, target.state, inserted, skipped);
   return { inserted, skipped };
+}
+
+export async function disconnect() {
+  await prisma.$disconnect();
 }
