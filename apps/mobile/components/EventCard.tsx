@@ -114,14 +114,6 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
             ) : null}
           </View>
 
-          {/* Attendee count */}
-          {attendeeCount > 0 && (
-            <View style={styles.attendeeRow}>
-              <Ionicons name="people-outline" size={13} color={colors.textMuted} />
-              <Text style={styles.attendeeText}>{attendeeCount} going</Text>
-            </View>
-          )}
-
           {/* Genre tags */}
           <View style={styles.genreRow}>
             {(expanded ? event.genres : event.genres.slice(0, 3)).map((g) => (
@@ -134,6 +126,14 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                 <Text style={styles.genreText}>+{event.genres.length - 3}</Text>
               </View>
             )}
+          </View>
+
+          {/* Attendee count */}
+          <View style={styles.attendeeRow}>
+            <Ionicons name="people-outline" size={13} color={colors.textMuted} />
+            <Text style={styles.attendeeText}>
+              {attendeeCount + signupCount > 0 ? `${attendeeCount + signupCount} going` : 'No RSVPs yet'}
+            </Text>
           </View>
 
           {/* Description */}
