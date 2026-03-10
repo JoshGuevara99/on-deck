@@ -49,6 +49,23 @@ const CreateEventSchema = z.object({
   venue: VenueInputSchema,
 });
 
+const UpdateEventSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  startsAt: z.string().datetime().optional(),
+  endsAt: z.string().datetime().nullable().optional(),
+  type: EventTypeEnum.optional(),
+  genres: z.array(z.string()).optional(),
+  coverCharge: z.string().nullable().optional(),
+  slotDuration: z.string().nullable().optional(),
+  backline: z.array(z.string()).optional(),
+  signUpMethod: SignUpMethodEnum.optional(),
+  isRecurring: z.boolean().optional(),
+  recurringDescription: z.string().nullable().optional(),
+  signupsEnabled: z.boolean().optional(),
+  maxSlots: z.number().int().min(1).nullable().optional(),
+});
+
 const ListQuerySchema = z.object({
   type: z.string().optional(),
   city: z.string().optional(),
@@ -99,3 +116,17 @@ eventsRouter.post('/', requireAuth, async (req, res, next) => {
   }
 });
 
+/** PATCH /events/:id — host-only: edit event details */
+eventsRouter.patch('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const { id: eventId } = req.params as { id: string };
+    const { userId } = getAuth(req);
+    const input = UpdateEventSchema.parse(req.body);
+    const event = await eventsService.updateEvent(eventId, userId as string, input);
+    res.json(event);
+  } catch (err: any) {
+    if (err?.status === 404) return res.status(404).json({ error: err.message });
+    if (err?.status === 403) return res.status(403).json({ error: err.message });
+    next(err);
+  }
+});

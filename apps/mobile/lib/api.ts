@@ -127,6 +127,11 @@ export const apiClient = {
       const data = await post<ApiEvent>('/events', input, token);
       return toMockEvent(data);
     },
+
+    async update(eventId: string, input: Record<string, unknown>, token: string): Promise<MockEvent> {
+      const data = await patch<ApiEvent>(`/events/${eventId}`, input, token);
+      return toMockEvent(data);
+    },
   },
 
   signups: {

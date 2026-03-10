@@ -15,12 +15,15 @@ export type PerformerType = 'MUSICIAN' | 'COMEDIAN' | 'POET' | 'STORYTELLER' | '
 
 export type SignupStatus = 'SIGNED_UP' | 'PERFORMED' | 'NO_SHOW' | 'REMOVED';
 
+export type UserRole = 'ATTENDEE' | 'HOST';
+
 // ─── Core models (API response shapes) ───────────────────────────────────────
 
 export interface User {
   id: string; // Clerk user ID
   email: string;
   name: string | null;
+  role: UserRole;
   displayName: string | null;
   bio: string | null;
   performerType: PerformerType | null;

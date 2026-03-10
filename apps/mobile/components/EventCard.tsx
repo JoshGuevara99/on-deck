@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../context/ThemeContext';
 import { EventTypeBadge } from './EventTypeBadge';
 import { SignUpModal } from './SignUpModal';
+import { EditEventModal } from './EditEventModal';
 import { formatDayLabel, formatTime } from '../utils/date';
 import { apiClient } from '../lib/api';
 import type { MockEvent } from '../constants/mock-data';
@@ -18,14 +19,18 @@ interface Props {
 
 export function EventCard({ event, expanded = false, onPress }: Props) {
   const { colors } = useTheme();
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn, getToken, userId } = useAuth();
   const accentColor = event.type === 'OPEN_MIC' ? colors.gold : colors.jam;
   const styles = makeStyles(colors);
 
   const [signUpModalVisible, setSignUpModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [currentEvent, setCurrentEvent] = useState(event);
   const [attendeeCount, setAttendeeCount] = useState(event.attendeeCount);
   const [signupCount, setSignupCount] = useState(event.signupCount);
   const [rsvped, setRsvped] = useState(false);
+
+  const isHost = isSignedIn && userId === currentEvent.hostId;
 
   const slotsLeft = event.maxSlots != null ? event.maxSlots - signupCount : null;
   const isFull = slotsLeft !== null && slotsLeft <= 0;
@@ -38,18 +43,14 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
     event.venue.instagramHandle;
 
   async function handleRsvp() {
-    if (!isSignedIn) {
-      Alert.alert('Sign in required', 'Create a free account to RSVP to events.');
-      return;
-    }
     try {
       const token = await getToken();
       if (rsvped) {
-        await apiClient.attendees.cancel(event.id, token!);
+        await apiClient.attendees.cancel(currentEvent.id, token!);
         setAttendeeCount((c) => Math.max(0, c - 1));
         setRsvped(false);
       } else {
-        await apiClient.attendees.rsvp(event.id, token!);
+        await apiClient.attendees.rsvp(currentEvent.id, token!);
         setAttendeeCount((c) => c + 1);
         setRsvped(true);
       }
@@ -60,17 +61,9 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
 
   async function handleSignUp(input: CreateSignupInput) {
     const token = await getToken();
-    const result = await apiClient.signups.create(event.id, input, token!);
+    const result = await apiClient.signups.create(currentEvent.id, input, token!);
     setSignupCount((c) => c + 1);
     return result;
-  }
-
-  function openSignUpModal() {
-    if (!isSignedIn) {
-      Alert.alert('Sign in required', 'Create a free account to sign up for a slot.');
-      return;
-    }
-    setSignUpModalVisible(true);
   }
 
   return (
@@ -175,28 +168,38 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
               {/* Action buttons */}
               <View style={styles.actionRow}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.actionBtnSecondary, rsvped && styles.actionBtnActive]}
+                  style={[
+                    styles.actionBtn,
+                    styles.actionBtnSecondary,
+                    rsvped && styles.actionBtnActive,
+                    !isSignedIn && styles.actionBtnDisabled,
+                  ]}
                   onPress={handleRsvp}
+                  disabled={!isSignedIn}
                   activeOpacity={0.8}
                 >
                   <Ionicons
                     name={rsvped ? 'checkmark-circle' : 'checkmark-circle-outline'}
                     size={15}
-                    color={rsvped ? colors.bg : colors.textSecondary}
+                    color={!isSignedIn ? colors.textMuted : rsvped ? colors.bg : colors.textSecondary}
                   />
-                  <Text style={[styles.actionBtnText, rsvped && styles.actionBtnTextActive]}>
+                  <Text style={[styles.actionBtnText, rsvped && styles.actionBtnTextActive, !isSignedIn && { color: colors.textMuted }]}>
                     {rsvped ? 'Going' : "I'm Going"}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.actionBtnPrimary, isFull && styles.actionBtnDisabled]}
-                  onPress={openSignUpModal}
-                  disabled={isFull}
+                  style={[
+                    styles.actionBtn,
+                    styles.actionBtnPrimary,
+                    (isFull || !isSignedIn) && styles.actionBtnDisabled,
+                  ]}
+                  onPress={() => setSignUpModalVisible(true)}
+                  disabled={isFull || !isSignedIn}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="mic" size={15} color={isFull ? colors.textMuted : colors.bg} />
-                  <Text style={[styles.actionBtnPrimaryText, isFull && { color: colors.textMuted }]}>
+                  <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : colors.bg} />
+                  <Text style={[styles.actionBtnPrimaryText, (isFull || !isSignedIn) && { color: colors.textMuted }]}>
                     {isFull ? 'Full' : 'Sign Up to Perform'}
                   </Text>
                 </TouchableOpacity>
@@ -207,6 +210,17 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
           {/* ── Expanded details ─────────────────────────────── */}
           {expanded && (
             <View style={styles.expandedSection}>
+              {/* Host edit button */}
+              {isHost && (
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  onPress={() => setEditModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="create-outline" size={15} color={colors.gold} />
+                  <Text style={styles.editBtnText}>Edit Event</Text>
+                </TouchableOpacity>
+              )}
               <View style={styles.detailRow}>
                 <Ionicons name="time-outline" size={14} color={accentColor} />
                 <Text style={styles.detailLabel}>Time</Text>
@@ -312,10 +326,16 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
       </TouchableOpacity>
 
       <SignUpModal
-        event={event}
+        event={currentEvent}
         visible={signUpModalVisible}
         onClose={() => setSignUpModalVisible(false)}
         onSubmit={handleSignUp}
+      />
+      <EditEventModal
+        event={currentEvent}
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        onSave={(updated) => setCurrentEvent(updated)}
       />
     </>
   );
@@ -436,6 +456,23 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginTop: 2,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+    },
+    editBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      alignSelf: 'flex-end',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.gold,
+      backgroundColor: colors.surface,
+    },
+    editBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.gold,
     },
     detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
     detailLabel: {
