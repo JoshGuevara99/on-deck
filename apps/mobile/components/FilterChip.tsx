@@ -29,23 +29,25 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     chip: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 20,
-      borderWidth: 1,
+      borderRadius: 24,
+      borderWidth: 1.5,
       borderColor: colors.border,
       marginRight: 8,
+      backgroundColor: 'transparent',
     },
     chipActive: {
-      backgroundColor: colors.gold,
-      borderColor: colors.gold,
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
     },
     label: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.4,
+      color: colors.textMuted,
+      textTransform: 'uppercase',
     },
     labelActive: {
-      color: colors.bg,
-      fontWeight: '700',
+      color: '#FFFFFF',
     },
   });
 }

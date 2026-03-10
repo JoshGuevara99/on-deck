@@ -3,25 +3,32 @@ import type { EventType } from '@on-deck/shared';
 import { useTheme } from '../context/ThemeContext';
 
 const LABELS: Record<EventType, string> = {
-  OPEN_MIC: 'Open Mic',
-  JAM_SESSION: 'Jam Session',
-  COMEDY_NIGHT: 'Comedy Night',
-  POETRY_SLAM: 'Poetry Slam',
-  OPEN_STAGE: 'Open Stage',
-  WORKSHOP: 'Workshop',
-  OPEN_STUDIO: 'Open Studio',
+  OPEN_MIC:      'Open Mic',
+  JAM_SESSION:   'Jam Session',
+  COMEDY_NIGHT:  'Comedy',
+  POETRY_SLAM:   'Poetry Slam',
+  OPEN_STAGE:    'Open Stage',
+  WORKSHOP:      'Workshop',
+  OPEN_STUDIO:   'Open Studio',
 };
-
-// Gold = performance/music types, Jam = everything else
-const GOLD_TYPES = new Set<EventType>(['OPEN_MIC', 'JAM_SESSION', 'OPEN_STAGE']);
 
 export function EventTypeBadge({ type }: { type: EventType }) {
   const { colors } = useTheme();
-  const accentColor = GOLD_TYPES.has(type) ? colors.gold : colors.jam;
+
+  const colorMap: Record<EventType, string> = {
+    OPEN_MIC:     colors.gold,
+    JAM_SESSION:  colors.jam,
+    COMEDY_NIGHT: colors.cyan,
+    POETRY_SLAM:  colors.accent,
+    OPEN_STAGE:   colors.gold,
+    WORKSHOP:     colors.cyan,
+    OPEN_STUDIO:  colors.accent,
+  };
+
+  const accentColor = colorMap[type];
 
   return (
-    <View style={[styles.badge, { borderColor: accentColor }]}>
-      <View style={[styles.dot, { backgroundColor: accentColor }]} />
+    <View style={[styles.badge, { borderColor: accentColor, backgroundColor: `${accentColor}18` }]}>
       <Text style={[styles.label, { color: accentColor }]}>{LABELS[type]}</Text>
     </View>
   );
@@ -29,24 +36,16 @@ export function EventTypeBadge({ type }: { type: EventType }) {
 
 const styles = StyleSheet.create({
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 6,
+    borderWidth: 1.5,
     alignSelf: 'flex-start',
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
   label: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
 });

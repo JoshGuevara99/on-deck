@@ -1,52 +1,55 @@
 export const DARK_COLORS = {
-  // Backgrounds — deep, atmospheric dark
-  bg: '#0A0A12',
-  surface: '#121220',
-  surfaceHigh: '#1A1A2C',
+  // Backgrounds
+  bg: '#08080E',
+  surface: '#0F0F1C',
+  surfaceHigh: '#17172A',
 
-  // Accents — warm stage-light tones
-  gold: '#F0A030',   // open mic
-  jam: '#E8553E',    // jam session
+  // Accents
+  gold: '#FFB800',     // Open Mic / warm
+  jam: '#FF3CAC',      // Hot magenta — neon sign energy
+  accent: '#7C3AFF',   // Electric violet — primary CTA / spotlight
+  cyan: '#00D4FF',     // Electric cyan — third accent
 
   // Text
-  text: '#EDEEF5',
-  textSecondary: '#8888AA',
-  textMuted: '#55556E',
+  text: '#F0F0FF',
+  textSecondary: '#7878A0',
+  textMuted: '#4A4A6A',
 
   // UI chrome
-  border: '#252540',
-  tabBar: '#0D0D1A',
+  border: '#1E1E38',
+  tabBar: '#0F0F1C',
 
   // Status
   live: '#4ADE80',
 } as const;
 
 export const LIGHT_COLORS = {
-  // Backgrounds
-  bg: '#FAFAFA',
-  surface: '#FFFFFF',
-  surfaceHigh: '#F2F2F7',
+  // Backgrounds — warm cream / aged poster
+  bg: '#F2F0EB',
+  surface: '#FDFCF8',
+  surfaceHigh: '#EDEAE3',
 
-  // Accents — slightly deeper for light-background contrast
-  gold: '#C8820A',
-  jam: '#C4402E',
+  // Accents
+  gold: '#D4900A',
+  jam: '#DB2777',
+  accent: '#6D28D9',
+  cyan: '#0284C7',
 
   // Text
-  text: '#0D0D1A',
+  text: '#0A0810',
   textSecondary: '#44445A',
   textMuted: '#888899',
 
   // UI chrome
-  border: '#E0E0EC',
-  tabBar: '#FFFFFF',
+  border: '#DDD8CE',
+  tabBar: '#FDFCF8',
 
   // Status
   live: '#16A34A',
 } as const;
 
-// Backward-compat alias — still compiles anywhere that hasn't migrated to useTheme() yet.
+// Backward-compat alias
 export const COLORS = DARK_COLORS;
 
-// Widen literal types to string so both DARK_COLORS and LIGHT_COLORS satisfy AppColors.
 export type AppColors = { [K in keyof typeof DARK_COLORS]: string };
 export type ThemeMode = 'dark' | 'light';

@@ -8,19 +8,27 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.gold,
+        tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: colors.tabBar,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 62,
-          paddingBottom: 10,
-          paddingTop: 6,
+          position: 'absolute',
+          bottom: 20,
+          left: 20,
+          right: 20,
+          borderRadius: 32,
+          height: 64,
+          backgroundColor: colors.surfaceHigh,
+          borderWidth: 1,
+          borderColor: colors.border,
+          elevation: 24,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.4,
+          shadowRadius: 24,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
+        tabBarItemStyle: {
+          paddingVertical: 10,
         },
         headerShown: false,
       }}
@@ -28,37 +36,29 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Discover',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="compass" size={24} color={color} />,
+          tabBarAccessibilityLabel: 'Discover',
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Map',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="map" size={24} color={color} />,
+          tabBarAccessibilityLabel: 'Map',
         }}
       />
       <Tabs.Screen
         name="submit"
         options={{
-          title: 'Submit',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="add-circle" size={28} color={color} />,
+          tabBarAccessibilityLabel: 'Submit',
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="person-circle" size={24} color={color} />,
+          tabBarAccessibilityLabel: 'Profile',
         }}
       />
     </Tabs>
