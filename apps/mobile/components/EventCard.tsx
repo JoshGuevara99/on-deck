@@ -205,6 +205,14 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Sign-in hint */}
+              {!isSignedIn && (
+                <View style={styles.signInHint}>
+                  <Ionicons name="lock-closed-outline" size={12} color={colors.textMuted} />
+                  <Text style={styles.signInHintText}>Sign in to RSVP or grab a performer slot</Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -228,6 +236,14 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                 <Text style={styles.detailValue}>
                   {formatTime(event.startsAt)}
                   {event.endsAt ? ` – ${formatTime(event.endsAt)}` : ''}
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Ionicons name="people-outline" size={14} color={accentColor} />
+                <Text style={styles.detailLabel}>Attendees</Text>
+                <Text style={styles.detailValue}>
+                  {attendeeCount > 0 ? `${attendeeCount} going` : 'No RSVPs yet'}
                 </Text>
               </View>
 
@@ -450,6 +466,18 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       fontSize: 12,
       fontWeight: '700',
       color: colors.bg,
+    },
+    signInHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      paddingTop: 4,
+    },
+    signInHintText: {
+      fontSize: 11,
+      color: colors.textMuted,
+      fontStyle: 'italic',
     },
     expandedSection: {
       gap: 10,
