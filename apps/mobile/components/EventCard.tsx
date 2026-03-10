@@ -197,21 +197,23 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.actionBtn,
-                    styles.actionBtnPrimary,
-                    (isFull || !isSignedIn) && styles.actionBtnDisabled,
-                  ]}
-                  onPress={() => setSignUpModalVisible(true)}
-                  disabled={isFull || !isSignedIn}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : colors.bg} />
-                  <Text style={[styles.actionBtnPrimaryText, (isFull || !isSignedIn) && { color: colors.textMuted }]}>
-                    {isFull ? 'Full' : 'Sign Up to Perform'}
-                  </Text>
-                </TouchableOpacity>
+                {currentEvent.signUpMethod !== 'door' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.actionBtn,
+                      styles.actionBtnPrimary,
+                      (isFull || !isSignedIn) && styles.actionBtnDisabled,
+                    ]}
+                    onPress={() => setSignUpModalVisible(true)}
+                    disabled={isFull || !isSignedIn}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : colors.bg} />
+                    <Text style={[styles.actionBtnPrimaryText, (isFull || !isSignedIn) && { color: colors.textMuted }]}>
+                      {isFull ? 'Full' : 'Sign Up to Perform'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Sign-in hint */}
