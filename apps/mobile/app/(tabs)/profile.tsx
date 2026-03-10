@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { SignOutButton } from '../../components/SignOutButton';
+import { EditEventModal } from '../../components/EditEventModal';
 import { apiClient } from '../../lib/api';
 import type { MockEvent } from '../../constants/mock-data';
 import type { User, PerformerType } from '@on-deck/shared';
@@ -40,9 +41,30 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   const [profile, setProfile] = useState<User | null>(null);
-  const [myEvents, setMyEvents] = useState<MockEvent[]>([]);
+  const [mySubmissions, setMySubmissions] = useState<MockEvent[]>([]);
   const [mySignups, setMySignups] = useState<Array<{ event: MockEvent; status: string }>>([]);
+  const [myAttending, setMyAttending] = useState<Array<{ id: string; event: MockEvent }>>([]);
   const [loading, setLoading] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<MockEvent | null>(null);
+
+  // Combined attending + signed-up events, deduped by event ID (signup takes priority)
+  const combinedEvents = useMemo(() => {
+    const map = new Map<string, { event: MockEvent; label: string; isSignup: boolean; status?: string }>();
+    for (const { event } of myAttending) {
+      map.set(event.id, { event, label: 'Going', isSignup: false });
+    }
+    for (const { event, status } of mySignups) {
+      map.set(event.id, {
+        event,
+        label: status === 'SIGNED_UP' ? 'On list' : status === 'PERFORMED' ? 'Performed' : status,
+        isSignup: true,
+        status,
+      });
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(a.event.startsAt).getTime() - new Date(b.event.startsAt).getTime()
+    );
+  }, [myAttending, mySignups]);
 
   // Identity edit state
   const [editingIdentity, setEditingIdentity] = useState(false);
@@ -53,36 +75,51 @@ export default function ProfileScreen() {
   const [genres, setGenres] = useState('');
   const [savingIdentity, setSavingIdentity] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!isSignedIn) return;
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    let cancelled = false;
+    const safetyTimer = setTimeout(() => { if (!cancelled) setLoading(false); }, 8000);
+
     setLoading(true);
-    try {
-      const token = await getToken();
-      if (!token) return;
-      const [profileData, eventsData, signupsData] = await Promise.all([
+    getToken().then((token) => {
+      if (!token || cancelled) {
+        clearTimeout(safetyTimer);
+        if (!cancelled) setLoading(false);
+        return;
+      }
+      Promise.all([
         apiClient.users.me(token),
         apiClient.users.myEvents(token),
         apiClient.users.mySignups(token),
-      ]);
-      setProfile(profileData);
-      setMyEvents(eventsData);
-      setMySignups(signupsData.map((s) => ({ event: s.event, status: s.status })));
-      // Seed edit fields
-      setDisplayName(profileData.displayName ?? '');
-      setBio(profileData.bio ?? '');
-      setPerformerType(profileData.performerType);
-      setInstruments((profileData.instruments ?? []).join(', '));
-      setGenres((profileData.genres ?? []).join(', '));
-    } catch {
-      // API unavailable
-    } finally {
-      setLoading(false);
-    }
-  }, [isSignedIn, getToken]);
+      ]).then(([profileData, eventsData, signupsData]) => {
+        if (cancelled) return;
+        setProfile(profileData);
+        setMySubmissions(eventsData);
+        setMySignups(signupsData.map((s) => ({ event: s.event, status: s.status })));
+        setDisplayName(profileData.displayName ?? '');
+        setBio(profileData.bio ?? '');
+        setPerformerType(profileData.performerType);
+        setInstruments((profileData.instruments ?? []).join(', '));
+        setGenres((profileData.genres ?? []).join(', '));
+        // Attending fetched independently — must not block the main load
+        apiClient.users.myAttending(token)
+          .then((data) => { if (!cancelled) setMyAttending(data); })
+          .catch(() => {});
+      }).catch(() => {
+        // API unavailable — sections will show empty state
+      }).finally(() => {
+        clearTimeout(safetyTimer);
+        if (!cancelled) setLoading(false);
+      });
+    }).catch(() => {
+      clearTimeout(safetyTimer);
+      if (!cancelled) setLoading(false);
+    });
 
-  useEffect(() => {
-    if (isLoaded) load();
-  }, [isLoaded, load]);
+    return () => { cancelled = true; clearTimeout(safetyTimer); };
+  // getToken is intentionally excluded — it changes reference every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn]);
 
   async function saveIdentity() {
     const token = await getToken();
@@ -300,7 +337,7 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* ── My Events (hosted) ──────────────────────── */}
+        {/* ── My Events (attending + signed up to perform) ──────────────────────── */}
         {isSignedIn && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -313,73 +350,20 @@ export default function ProfileScreen() {
               <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ActivityIndicator color={colors.gold} />
               </View>
-            ) : myEvents.length === 0 ? (
+            ) : combinedEvents.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                  No events submitted yet. Go to Submit to add one.
+                  No events yet. Tap "I'm Going" on any event or sign up to perform.
                 </Text>
               </View>
             ) : (
               <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {myEvents.map((event, idx) => (
-                  <TouchableOpacity
-                    key={event.id}
-                    style={[
-                      styles.eventRow,
-                      idx < myEvents.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-                    ]}
-                    onPress={() => router.push(`/roster/${event.id}` as any)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.eventRowLeft}>
-                      <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={1}>
-                        {event.title}
-                      </Text>
-                      <Text style={[styles.eventMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                        {event.venue.name}
-                        {event.signupsEnabled ? ` · ${event.signupCount} signed up` : ''}
-                      </Text>
-                    </View>
-                    {event.signupsEnabled && (
-                      <View style={styles.manageBtn}>
-                        <Text style={[styles.manageBtnText, { color: colors.gold }]}>Manage</Text>
-                        <Ionicons name="chevron-forward" size={14} color={colors.gold} />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ── My Sign-Ups ────────────────────────────── */}
-        {isSignedIn && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderLeft}>
-                <Ionicons name="mic-outline" size={16} color={colors.gold} />
-                <Text style={styles.sectionTitle}>My Sign-Ups</Text>
-              </View>
-            </View>
-            {loading ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <ActivityIndicator color={colors.gold} />
-              </View>
-            ) : mySignups.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                  No upcoming sign-ups. Find an open mic and get on deck.
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {mySignups.map(({ event, status }, idx) => (
+                {combinedEvents.map(({ event, label, isSignup, status }, idx) => (
                   <View
                     key={event.id}
                     style={[
                       styles.eventRow,
-                      idx < mySignups.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                      idx < combinedEvents.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
                     ]}
                   >
                     <View style={styles.eventRowLeft}>
@@ -393,19 +377,29 @@ export default function ProfileScreen() {
                     <View style={[
                       styles.statusBadge,
                       {
-                        backgroundColor: status === 'PERFORMED'
+                        backgroundColor: isSignup && status === 'PERFORMED'
                           ? `${colors.gold}20`
-                          : `${colors.jam}20`,
-                        borderColor: status === 'PERFORMED'
+                          : isSignup
+                          ? `${colors.jam}20`
+                          : '#22c55e20',
+                        borderColor: isSignup && status === 'PERFORMED'
                           ? `${colors.gold}50`
-                          : `${colors.jam}50`,
+                          : isSignup
+                          ? `${colors.jam}50`
+                          : '#22c55e50',
                       },
                     ]}>
                       <Text style={[
                         styles.statusText,
-                        { color: status === 'PERFORMED' ? colors.gold : colors.jam },
+                        {
+                          color: isSignup && status === 'PERFORMED'
+                            ? colors.gold
+                            : isSignup
+                            ? colors.jam
+                            : '#22c55e',
+                        },
                       ]}>
-                        {status === 'SIGNED_UP' ? 'On list' : status === 'PERFORMED' ? 'Performed' : status}
+                        {label}
                       </Text>
                     </View>
                   </View>
@@ -413,6 +407,82 @@ export default function ProfileScreen() {
               </View>
             )}
           </View>
+        )}
+
+        {/* ── My Submissions (events the user submitted) ──────────────────────── */}
+        {isSignedIn && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="add-circle-outline" size={16} color={colors.gold} />
+                <Text style={styles.sectionTitle}>My Submissions</Text>
+              </View>
+            </View>
+            {loading ? (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <ActivityIndicator color={colors.gold} />
+              </View>
+            ) : mySubmissions.length === 0 ? (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  No events submitted yet. Go to Submit to add one.
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {mySubmissions.map((event, idx) => (
+                  <View
+                    key={event.id}
+                    style={[
+                      styles.eventRow,
+                      idx < mySubmissions.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                    ]}
+                  >
+                    <View style={styles.eventRowLeft}>
+                      <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={1}>
+                        {event.title}
+                      </Text>
+                      <Text style={[styles.eventMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                        {event.venue.name}
+                        {event.signupsEnabled ? ` · ${event.signupCount} signed up` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.submissionActions}>
+                      <TouchableOpacity
+                        style={styles.manageBtn}
+                        onPress={() => setEditingEvent(event)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="create-outline" size={14} color={colors.gold} />
+                        <Text style={[styles.manageBtnText, { color: colors.gold }]}>Edit</Text>
+                      </TouchableOpacity>
+                      {event.signupsEnabled && (
+                        <TouchableOpacity
+                          style={styles.manageBtn}
+                          onPress={() => router.push(`/roster/${event.id}` as any)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.manageBtnText, { color: colors.textMuted }]}>Manage</Text>
+                          <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        {editingEvent && (
+          <EditEventModal
+            event={editingEvent}
+            visible={!!editingEvent}
+            onClose={() => setEditingEvent(null)}
+            onSave={(updated) => {
+              setMySubmissions((prev) => prev.map((e) => e.id === updated.id ? updated : e));
+              setEditingEvent(null);
+            }}
+          />
         )}
 
         {/* ── Settings ───────────────────────────────── */}
@@ -615,6 +685,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     eventRowLeft: { flex: 1, marginRight: 8 },
     eventTitle: { fontSize: 14, fontWeight: '600' },
     eventMeta: { fontSize: 12, marginTop: 2 },
+    submissionActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     manageBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     manageBtnText: { fontSize: 13, fontWeight: '700' },
     statusBadge: {

@@ -35,28 +35,23 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
   const slotsLeft = event.maxSlots != null ? event.maxSlots - signupCount : null;
   const isFull = slotsLeft !== null && slotsLeft <= 0;
 
-  const hasExpandedContent =
-    (event.description && event.description.length > 0) ||
-    event.genres.length > 3 ||
-    (event.backline && event.backline.length > 0) ||
-    event.endsAt ||
-    event.venue.instagramHandle ||
-    event.signupsEnabled;
+  const hasExpandedContent = true; // every event is expandable for the "I'm Going" button
 
   async function handleRsvp() {
+    const going = !rsvped;
+    // Optimistic update — show result immediately, errors are silently ignored
+    setRsvped(going);
+    setAttendeeCount((c) => going ? c + 1 : Math.max(0, c - 1));
     try {
       const token = await getToken();
-      if (rsvped) {
-        await apiClient.attendees.cancel(currentEvent.id, token!);
-        setAttendeeCount((c) => Math.max(0, c - 1));
-        setRsvped(false);
+      if (!token) return;
+      if (going) {
+        await apiClient.attendees.rsvp(currentEvent.id, token);
       } else {
-        await apiClient.attendees.rsvp(currentEvent.id, token!);
-        setAttendeeCount((c) => c + 1);
-        setRsvped(true);
+        await apiClient.attendees.cancel(currentEvent.id, token);
       }
     } catch {
-      // Already RSVPed or network error — silently ignore
+      // silently ignore — keep the optimistic UI state
     }
   }
 
@@ -143,36 +138,38 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
             </Text>
           ) : null}
 
-          {/* ── Sign-up section ───────────────────────────────── */}
-          {expanded && event.signupsEnabled && (
+          {/* ── RSVP + Sign-up section ───────────────────────────────── */}
+          {expanded && (
             <View style={styles.signupSection}>
-              {/* Counts row */}
-              <View style={styles.countsRow}>
-                {attendeeCount > 0 && (
-                  <View style={styles.countItem}>
-                    <Ionicons name="people-outline" size={13} color={colors.textMuted} />
-                    <Text style={styles.countText}>{attendeeCount} going</Text>
-                  </View>
-                )}
-                {signupCount > 0 && (
-                  <View style={styles.countItem}>
-                    <Ionicons name="mic-outline" size={13} color={colors.textMuted} />
-                    <Text style={styles.countText}>{signupCount} signed up</Text>
-                  </View>
-                )}
-                {slotsLeft !== null && (
-                  <View style={styles.countItem}>
-                    <Ionicons
-                      name={isFull ? 'lock-closed-outline' : 'ellipse-outline'}
-                      size={13}
-                      color={isFull ? colors.jam : colors.textMuted}
-                    />
-                    <Text style={[styles.countText, isFull && { color: colors.jam }]}>
-                      {isFull ? 'Full' : `${slotsLeft} left`}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              {/* Counts row — only when signups are enabled */}
+              {event.signupsEnabled && (
+                <View style={styles.countsRow}>
+                  {attendeeCount > 0 && (
+                    <View style={styles.countItem}>
+                      <Ionicons name="people-outline" size={13} color={colors.textMuted} />
+                      <Text style={styles.countText}>{attendeeCount} going</Text>
+                    </View>
+                  )}
+                  {signupCount > 0 && (
+                    <View style={styles.countItem}>
+                      <Ionicons name="mic-outline" size={13} color={colors.textMuted} />
+                      <Text style={styles.countText}>{signupCount} signed up</Text>
+                    </View>
+                  )}
+                  {slotsLeft !== null && (
+                    <View style={styles.countItem}>
+                      <Ionicons
+                        name={isFull ? 'lock-closed-outline' : 'ellipse-outline'}
+                        size={13}
+                        color={isFull ? colors.jam : colors.textMuted}
+                      />
+                      <Text style={[styles.countText, isFull && { color: colors.jam }]}>
+                        {isFull ? 'Full' : `${slotsLeft} left`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
 
               {/* Action buttons */}
               <View style={styles.actionRow}>
@@ -197,7 +194,7 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                   </Text>
                 </TouchableOpacity>
 
-                {currentEvent.signUpMethod !== 'door' && (
+                {event.signupsEnabled && currentEvent.signUpMethod !== 'door' && (
                   <TouchableOpacity
                     style={[
                       styles.actionBtn,
@@ -449,8 +446,8 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       backgroundColor: colors.surface,
     },
     actionBtnActive: {
-      backgroundColor: colors.gold,
-      borderColor: colors.gold,
+      backgroundColor: '#22c55e',
+      borderColor: '#22c55e',
     },
     actionBtnPrimary: {
       backgroundColor: colors.jam,
