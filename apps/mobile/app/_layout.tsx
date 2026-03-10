@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { ThemeProvider } from '../context/ThemeContext';
 import { LocationProvider } from '../context/LocationContext';
 import { EventsProvider } from '../context/EventsContext';
+import { AttendingProvider } from '../context/AttendingContext';
 import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { apiClient } from '../lib/api';
@@ -46,7 +47,9 @@ export default function RootLayout() {
       <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!} tokenCache={tokenCache}>
         <LocationProvider>
           <EventsProvider>
-            <AppShell />
+            <AttendingProvider>
+              <AppShell />
+            </AttendingProvider>
           </EventsProvider>
         </LocationProvider>
       </ClerkProvider>

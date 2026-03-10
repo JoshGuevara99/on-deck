@@ -8,6 +8,7 @@ import { SignUpModal } from './SignUpModal';
 import { EditEventModal } from './EditEventModal';
 import { formatDayLabel, formatTime } from '../utils/date';
 import { apiClient } from '../lib/api';
+import { useAttending } from '../context/AttendingContext';
 import type { MockEvent } from '../constants/mock-data';
 import type { CreateSignupInput } from '@on-deck/shared';
 
@@ -20,6 +21,7 @@ interface Props {
 export function EventCard({ event, expanded = false, onPress }: Props) {
   const { colors } = useTheme();
   const { isSignedIn, getToken, userId } = useAuth();
+  const { attendingIds, addAttending, removeAttending } = useAttending();
   const accentColor = event.type === 'OPEN_MIC' ? colors.gold : colors.jam;
   const styles = makeStyles(colors);
 
@@ -28,7 +30,9 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
   const [currentEvent, setCurrentEvent] = useState(event);
   const [attendeeCount, setAttendeeCount] = useState(event.attendeeCount);
   const [signupCount, setSignupCount] = useState(event.signupCount);
-  const [rsvped, setRsvped] = useState(false);
+
+  // Derived from global context — persists across navigation and page refresh
+  const rsvped = attendingIds.has(currentEvent.id);
 
   const isHost = isSignedIn && userId === currentEvent.hostId;
 
@@ -39,9 +43,14 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
 
   async function handleRsvp() {
     const going = !rsvped;
-    // Optimistic update — show result immediately, errors are silently ignored
-    setRsvped(going);
-    setAttendeeCount((c) => going ? c + 1 : Math.max(0, c - 1));
+    // Update global context immediately — reflects across all tabs
+    if (going) {
+      addAttending(currentEvent);
+      setAttendeeCount((c) => c + 1);
+    } else {
+      removeAttending(currentEvent.id);
+      setAttendeeCount((c) => Math.max(0, c - 1));
+    }
     try {
       const token = await getToken();
       if (!token) return;

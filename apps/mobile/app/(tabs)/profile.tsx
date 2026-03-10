@@ -19,6 +19,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { SignOutButton } from '../../components/SignOutButton';
 import { EditEventModal } from '../../components/EditEventModal';
+import { useAttending } from '../../context/AttendingContext';
 import { apiClient } from '../../lib/api';
 import type { MockEvent } from '../../constants/mock-data';
 import type { User, PerformerType } from '@on-deck/shared';
@@ -40,17 +41,19 @@ export default function ProfileScreen() {
   const { isLoaded, user } = useUser();
   const router = useRouter();
 
+  const { attending } = useAttending();
+
   const [profile, setProfile] = useState<User | null>(null);
   const [mySubmissions, setMySubmissions] = useState<MockEvent[]>([]);
   const [mySignups, setMySignups] = useState<Array<{ event: MockEvent; status: string }>>([]);
-  const [myAttending, setMyAttending] = useState<Array<{ id: string; event: MockEvent }>>([]);
   const [loading, setLoading] = useState(false);
   const [editingEvent, setEditingEvent] = useState<MockEvent | null>(null);
 
   // Combined attending + signed-up events, deduped by event ID (signup takes priority)
+  // attending comes from AttendingContext — updates instantly when user RSVPs on discover tab
   const combinedEvents = useMemo(() => {
     const map = new Map<string, { event: MockEvent; label: string; isSignup: boolean; status?: string }>();
-    for (const { event } of myAttending) {
+    for (const { event } of attending) {
       map.set(event.id, { event, label: 'Going', isSignup: false });
     }
     for (const { event, status } of mySignups) {
@@ -64,7 +67,7 @@ export default function ProfileScreen() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(a.event.startsAt).getTime() - new Date(b.event.startsAt).getTime()
     );
-  }, [myAttending, mySignups]);
+  }, [attending, mySignups]);
 
   // Identity edit state
   const [editingIdentity, setEditingIdentity] = useState(false);
@@ -101,10 +104,6 @@ export default function ProfileScreen() {
         setPerformerType(profileData.performerType);
         setInstruments((profileData.instruments ?? []).join(', '));
         setGenres((profileData.genres ?? []).join(', '));
-        // Attending fetched independently — must not block the main load
-        apiClient.users.myAttending(token)
-          .then((data) => { if (!cancelled) setMyAttending(data); })
-          .catch(() => {});
       }).catch(() => {
         // API unavailable — sections will show empty state
       }).finally(() => {
