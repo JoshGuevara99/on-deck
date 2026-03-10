@@ -40,7 +40,8 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
     event.genres.length > 3 ||
     (event.backline && event.backline.length > 0) ||
     event.endsAt ||
-    event.venue.instagramHandle;
+    event.venue.instagramHandle ||
+    event.signupsEnabled;
 
   async function handleRsvp() {
     try {
@@ -135,7 +136,7 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
           ) : null}
 
           {/* ── Sign-up section ───────────────────────────────── */}
-          {event.signupsEnabled && (
+          {expanded && event.signupsEnabled && (
             <View style={styles.signupSection}>
               {/* Counts row */}
               <View style={styles.countsRow}>
