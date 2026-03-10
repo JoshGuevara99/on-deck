@@ -333,20 +333,14 @@ export default function DiscoverScreen() {
                   subtitle={`${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
                 />
               )}
-              <View style={[styles.grid, isWide && styles.gridWide]}>
-                {dayEvents.map((e, idx) => (
-                  <View
-                    key={e.id}
-                    style={isWide ? { width: idx % 5 === 0 ? '100%' : '48.5%' } : undefined}
-                  >
-                    <EventCard
-                      event={e}
-                      expanded={expandedId === e.id}
-                      onPress={() => toggleExpand(e.id)}
-                    />
-                  </View>
-                ))}
-              </View>
+              {dayEvents.map((e) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  expanded={expandedId === e.id}
+                  onPress={() => toggleExpand(e.id)}
+                />
+              ))}
             </View>
           ))
         ) : (
@@ -494,13 +488,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     filterScroll: { marginBottom: 4 },
     filterContent: { paddingRight: 18 },
     section: { marginBottom: 8 },
-    grid: {},
-    gridWide: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 16,
-      alignItems: 'flex-start',
-    },
     emptyState: {
       alignItems: 'center',
       justifyContent: 'center',
