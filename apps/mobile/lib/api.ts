@@ -76,7 +76,7 @@ function toMockEvent(e: ApiEvent): MockEvent {
     state: e.state ?? e.venue.state,
     lat: e.venue.lat ?? undefined,
     lng: e.venue.lng ?? undefined,
-    instagramHandle: e.venue.instagramHandle ?? undefined,
+    instagramHandle: e.venue.instagramHandle || undefined,
   };
 
   return {
@@ -86,13 +86,13 @@ function toMockEvent(e: ApiEvent): MockEvent {
     startsAt: new Date(e.startsAt),
     endsAt: e.endsAt ? new Date(e.endsAt) : undefined,
     venue,
-    description: e.description ?? '',
+    description: e.description || '',
     genres: e.genres,
     isRecurring: e.isRecurring,
-    recurringDescription: e.recurringDescription ?? undefined,
+    recurringDescription: e.recurringDescription || undefined,
     backline: e.backline.length > 0 ? e.backline : undefined,
-    coverCharge: e.coverCharge ?? 'Free',
-    slotDuration: e.slotDuration ?? undefined,
+    coverCharge: e.coverCharge || 'Free',
+    slotDuration: e.slotDuration || undefined,
     signUpMethod: (e.signUpMethod.toLowerCase() as MockEvent['signUpMethod']),
     signupsEnabled: e.signupsEnabled,
     maxSlots: e.maxSlots,

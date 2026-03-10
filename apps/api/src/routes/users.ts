@@ -25,13 +25,25 @@ usersRouter.post('/sync', requireAuth, async (req, res, next) => {
     const { userId } = getAuth(req);
     const { email, name } = SyncBodySchema.parse(req.body);
 
-    const user = await prisma.user.upsert({
-      where: { id: userId as string },
-      update: { email, name: name ?? null },
-      create: { id: userId as string, email, name: name ?? null },
-    });
-
-    res.json(user);
+    try {
+      const user = await prisma.user.upsert({
+        where: { id: userId as string },
+        update: { email, name: name ?? null },
+        create: { id: userId as string, email, name: name ?? null },
+      });
+      return res.json(user);
+    } catch (upsertErr: any) {
+      // P2002: email already exists for a different Clerk user ID (e.g. dev DB reuse).
+      // Claim the existing record for this Clerk user rather than blocking sync.
+      if (upsertErr?.code === 'P2002') {
+        const user = await prisma.user.update({
+          where: { email },
+          data: { id: userId as string, name: name ?? null },
+        });
+        return res.json(user);
+      }
+      throw upsertErr;
+    }
   } catch (err) {
     next(err);
   }
