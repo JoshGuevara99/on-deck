@@ -11,47 +11,40 @@ export function SectionHeader({ title, subtitle }: Props) {
   const styles = makeStyles(colors);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.tick} />
-      <View style={styles.textGroup}>
-        <Text style={styles.title}>{title.toUpperCase()}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-      </View>
+    <View style={styles.band}>
+      <Text style={styles.title}>{title.toUpperCase()}</Text>
+      {subtitle && <Text style={styles.subtitle}>{subtitle.toUpperCase()}</Text>}
     </View>
   );
 }
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    container: {
+    band: {
       flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
-      gap: 10,
-      marginBottom: 14,
-      marginTop: 8,
-    },
-    tick: {
-      width: 3,
-      height: 28,
-      borderRadius: 2,
-      backgroundColor: colors.accent,
-    },
-    textGroup: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      gap: 10,
+      marginHorizontal: -18,
+      marginBottom: 16,
+      marginTop: 12,
+      paddingHorizontal: 18,
+      paddingVertical: 9,
+      backgroundColor: colors.surfaceHigh,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
     },
     title: {
-      fontSize: 15,
+      fontSize: 12,
       fontWeight: '900',
-      letterSpacing: 2.5,
+      letterSpacing: 3,
       color: colors.text,
     },
     subtitle: {
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 1.5,
       color: colors.textMuted,
-      letterSpacing: 0.5,
     },
   });
 }

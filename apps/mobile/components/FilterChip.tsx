@@ -27,27 +27,25 @@ export function FilterChip({ label, active, onPress }: Props) {
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     chip: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 24,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      marginRight: 8,
-      backgroundColor: 'transparent',
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      marginRight: 2,
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
     },
     chipActive: {
-      backgroundColor: colors.accent,
-      borderColor: colors.accent,
+      borderBottomColor: colors.accent,
     },
     label: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '700',
-      letterSpacing: 0.4,
-      color: colors.textMuted,
+      letterSpacing: 1,
       textTransform: 'uppercase',
+      color: colors.textMuted,
     },
     labelActive: {
-      color: '#FFFFFF',
+      color: colors.accent,
+      fontWeight: '900',
     },
   });
 }

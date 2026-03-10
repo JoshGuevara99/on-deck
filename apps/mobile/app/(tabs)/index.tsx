@@ -196,61 +196,58 @@ export default function DiscoverScreen() {
       >
         {/* ── Header ──────────────────────────────────────────── */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerTop}>
             <Text style={styles.appName}>ON DECK</Text>
-            <TouchableOpacity
-              style={styles.locationRow}
-              onPress={() => setShowCityPicker(true)}
-              activeOpacity={0.7}
-              accessibilityLabel="Change city"
-            >
-              <Ionicons name="location-sharp" size={12} color={colors.gold} />
-              <Text style={styles.locationText}>
-                {selectedCity ? selectedCity.label : 'All Cities'}
-              </Text>
-              <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={[styles.iconButton, calendarActive && styles.iconButtonActive]}
+                onPress={() => setShowCalendar(true)}
+                accessibilityLabel="Open calendar"
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={18}
+                  color={calendarActive ? colors.accent : colors.text}
+                />
+                {calendarActive && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>
+                      {(dateFilter as { date: Date }).date.getDate()}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconButton, activeExtraCount > 0 && styles.iconButtonActive]}
+                onPress={() => setShowFilterModal(true)}
+                accessibilityLabel="Filter options"
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={20}
+                  color={activeExtraCount > 0 ? colors.accent : colors.text}
+                />
+                {activeExtraCount > 0 && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{activeExtraCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <View style={styles.headerActions}>
-            {/* Calendar button */}
-            <TouchableOpacity
-              style={[styles.iconButton, calendarActive && styles.iconButtonActive]}
-              onPress={() => setShowCalendar(true)}
-              accessibilityLabel="Open calendar"
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={18}
-                color={calendarActive ? colors.gold : colors.text}
-              />
-              {calendarActive && (
-                <View style={styles.filterBadge}>
-                  <Text style={styles.filterBadgeText}>
-                    {(dateFilter as { date: Date }).date.getDate()}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Extra filters button */}
-            <TouchableOpacity
-              style={[styles.iconButton, activeExtraCount > 0 && styles.iconButtonActive]}
-              onPress={() => setShowFilterModal(true)}
-              accessibilityLabel="Filter options"
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={activeExtraCount > 0 ? colors.gold : colors.text}
-              />
-              {activeExtraCount > 0 && (
-                <View style={styles.filterBadge}>
-                  <Text style={styles.filterBadgeText}>{activeExtraCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.locationRow}
+            onPress={() => setShowCityPicker(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Change city"
+          >
+            <Ionicons name="location-sharp" size={11} color={colors.accent} />
+            <Text style={styles.locationText}>
+              {selectedCity ? selectedCity.label : 'All Cities'}
+            </Text>
+            <Ionicons name="chevron-down" size={11} color={colors.textMuted} />
+          </TouchableOpacity>
+          <View style={styles.headerDivider} />
         </View>
 
         {/* ── Search ──────────────────────────────────────────── */}
@@ -330,26 +327,26 @@ export default function DiscoverScreen() {
         {grouped.length > 0 ? (
           grouped.map(({ date, events: dayEvents }) => (
             <View key={date.getTime()} style={styles.section}>
-              {!isSingleDay && (
+              {(!isSingleDay || grouped.length === 1) && (
                 <SectionHeader
                   title={formatSectionHeader(date)}
                   subtitle={`${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
                 />
               )}
-              {isSingleDay && grouped.length === 1 && (
-                <SectionHeader
-                  title={formatSectionHeader(date)}
-                  subtitle={`${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
-                />
-              )}
-              {dayEvents.map((e) => (
-                <EventCard
-                  key={e.id}
-                  event={e}
-                  expanded={expandedId === e.id}
-                  onPress={() => toggleExpand(e.id)}
-                />
-              ))}
+              <View style={[styles.grid, isWide && styles.gridWide]}>
+                {dayEvents.map((e, idx) => (
+                  <View
+                    key={e.id}
+                    style={isWide ? { width: idx % 5 === 0 ? '100%' : '48.5%' } : undefined}
+                  >
+                    <EventCard
+                      event={e}
+                      expanded={expandedId === e.id}
+                      onPress={() => toggleExpand(e.id)}
+                    />
+                  </View>
+                ))}
+              </View>
             </View>
           ))
         ) : (
@@ -408,48 +405,54 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     safe: { flex: 1, backgroundColor: colors.bg },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: 18, paddingBottom: 110 },
-    scrollContentWide: { maxWidth: 720, alignSelf: 'center', width: '100%' },
+    scrollContentWide: { maxWidth: 860, alignSelf: 'center', width: '100%' },
     header: {
+      paddingTop: 28,
+      paddingBottom: 6,
+      gap: 8,
+    },
+    headerTop: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingTop: 24,
-      paddingBottom: 20,
+      alignItems: 'flex-end',
     },
     appName: {
-      fontSize: 36,
+      fontSize: 48,
       fontWeight: '900',
-      letterSpacing: 6,
+      letterSpacing: 8,
       color: colors.text,
+      lineHeight: 52,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingBottom: 4,
     },
     locationRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      marginTop: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 20,
-      borderWidth: 1.5,
-      borderColor: colors.border,
       alignSelf: 'flex-start',
     },
     locationText: {
       fontSize: 12,
-      color: colors.textSecondary,
+      color: colors.textMuted,
       fontWeight: '700',
-      letterSpacing: 0.3,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
     },
-    headerActions: {
-      flexDirection: 'row',
-      gap: 8,
+    headerDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginTop: 10,
+      marginBottom: 4,
     },
     iconButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 14,
+      width: 40,
+      height: 40,
+      borderRadius: 2,
       backgroundColor: colors.surface,
-      borderWidth: 1.5,
+      borderWidth: 2,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
@@ -473,24 +476,31 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     filterBadgeText: {
       fontSize: 9,
       fontWeight: '900',
-      color: '#FFFFFF',
+      color: '#FFF',
     },
     searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       backgroundColor: colors.surface,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      borderWidth: 1.5,
+      borderRadius: 2,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      borderWidth: 2,
       borderColor: colors.border,
-      marginBottom: 14,
+      marginBottom: 2,
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.text, fontWeight: '500' },
-    filterScroll: { marginBottom: 14 },
+    filterScroll: { marginBottom: 4 },
     filterContent: { paddingRight: 18 },
     section: { marginBottom: 8 },
+    grid: {},
+    gridWide: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      alignItems: 'flex-start',
+    },
     emptyState: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -498,7 +508,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       gap: 14,
     },
     emptyTitle: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: '900',
       letterSpacing: -0.5,
       color: colors.textSecondary,
@@ -512,16 +522,17 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     clearAllBtn: {
       paddingHorizontal: 22,
       paddingVertical: 11,
-      borderRadius: 24,
-      borderWidth: 1.5,
+      borderRadius: 2,
+      borderWidth: 2,
       borderColor: colors.accent,
       marginTop: 4,
     },
     clearAllText: {
-      fontSize: 13,
-      fontWeight: '700',
+      fontSize: 12,
+      fontWeight: '900',
       color: colors.accent,
-      letterSpacing: 0.3,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
     },
     loadingOverlay: {
       position: 'absolute',
@@ -539,8 +550,8 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginTop: 8,
       paddingHorizontal: 14,
       paddingVertical: 10,
-      borderRadius: 12,
-      borderWidth: 1.5,
+      borderRadius: 2,
+      borderWidth: 2,
     },
     errorBannerText: { fontSize: 12, fontWeight: '600', flex: 1 },
   });

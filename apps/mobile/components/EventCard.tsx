@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../context/ThemeContext';
-import { EventTypeBadge } from './EventTypeBadge';
 import { SignUpModal } from './SignUpModal';
 import { EditEventModal } from './EditEventModal';
 import { formatDayLabel, formatTime } from '../utils/date';
 import { apiClient } from '../lib/api';
 import type { MockEvent } from '../constants/mock-data';
-import type { CreateSignupInput } from '@on-deck/shared';
+import type { CreateSignupInput, EventType } from '@on-deck/shared';
 
 interface Props {
   event: MockEvent;
@@ -17,11 +16,31 @@ interface Props {
   onPress?: () => void;
 }
 
+const TYPE_LABELS: Record<EventType, string> = {
+  OPEN_MIC:     'Open Mic',
+  JAM_SESSION:  'Jam Session',
+  COMEDY_NIGHT: 'Comedy Night',
+  POETRY_SLAM:  'Poetry Slam',
+  OPEN_STAGE:   'Open Stage',
+  WORKSHOP:     'Workshop',
+  OPEN_STUDIO:  'Open Studio',
+};
+
 export function EventCard({ event, expanded = false, onPress }: Props) {
   const { colors } = useTheme();
   const { isSignedIn, getToken, userId } = useAuth();
-  const accentColor = event.type === 'OPEN_MIC' ? colors.gold : colors.jam;
   const styles = makeStyles(colors);
+
+  const typeColorMap: Record<EventType, string> = {
+    OPEN_MIC:     colors.gold,
+    JAM_SESSION:  colors.jam,
+    COMEDY_NIGHT: colors.cyan,
+    POETRY_SLAM:  colors.accent,
+    OPEN_STAGE:   colors.gold,
+    WORKSHOP:     colors.cyan,
+    OPEN_STUDIO:  colors.accent,
+  };
+  const accentColor = typeColorMap[event.type];
 
   const [signUpModalVisible, setSignUpModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -31,13 +50,13 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
   const [rsvped, setRsvped] = useState(false);
 
   const isHost = isSignedIn && userId === currentEvent.hostId;
-
   const slotsLeft = event.maxSlots != null ? event.maxSlots - signupCount : null;
   const isFull = slotsLeft !== null && slotsLeft <= 0;
+  const totalGoing = attendeeCount + signupCount;
 
   const hasExpandedContent =
     (event.description && event.description.length > 0) ||
-    event.genres.length > 3 ||
+    event.genres.length > 0 ||
     (event.backline && event.backline.length > 0) ||
     event.endsAt ||
     event.venue.instagramHandle ||
@@ -56,7 +75,7 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
         setRsvped(true);
       }
     } catch {
-      // Already RSVPed or network error — silently ignore
+      // silently ignore
     }
   }
 
@@ -70,104 +89,98 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
   return (
     <>
       <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.85}
+        style={[styles.card, { borderColor: accentColor, shadowColor: accentColor }]}
+        activeOpacity={0.9}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${event.title} at ${event.venue.name}`}
         accessibilityState={{ expanded }}
       >
-        {/* Top accent strip */}
-        <View style={[styles.topStrip, { backgroundColor: accentColor }]} />
-
-        <View style={styles.content}>
-          {/* Badge + time + expand indicator */}
-          <View style={styles.headerRow}>
-            <EventTypeBadge type={event.type} />
-            <View style={styles.headerRight}>
-              <Text style={styles.time}>
-                {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
-              </Text>
-              {hasExpandedContent && (
-                <Ionicons
-                  name={expanded ? 'chevron-up' : 'chevron-down'}
-                  size={14}
-                  color={colors.textMuted}
-                  style={styles.chevron}
-                />
-              )}
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={styles.title}>{event.title}</Text>
-
-          {/* Venue */}
-          <View style={styles.venueRow}>
-            <Ionicons name="location-sharp" size={13} color={accentColor} />
-            <Text style={styles.venueName}>{event.venue.name}</Text>
-            {event.venue.neighborhood ? (
-              <>
-                <Text style={styles.separator}>·</Text>
-                <Text style={styles.neighborhood}>{event.venue.neighborhood}</Text>
-              </>
-            ) : null}
-          </View>
-
-          {/* Genre tags */}
-          <View style={styles.genreRow}>
-            {(expanded ? event.genres : event.genres.slice(0, 3)).map((g) => (
-              <View key={g} style={styles.genreTag}>
-                <Text style={styles.genreText}>{g}</Text>
-              </View>
-            ))}
-            {!expanded && event.genres.length > 3 && (
-              <View style={[styles.genreTag, { borderStyle: 'dashed' }]}>
-                <Text style={styles.genreText}>+{event.genres.length - 3}</Text>
-              </View>
+        {/* ── Type header block ──────────────────────────────── */}
+        <View style={[styles.typeHeader, { backgroundColor: accentColor }]}>
+          <Text style={styles.typeLabel}>{TYPE_LABELS[event.type]}</Text>
+          <View style={styles.typeHeaderRight}>
+            <Text style={styles.timeLabel}>
+              {formatDayLabel(event.startsAt).toUpperCase()} · {formatTime(event.startsAt)}
+            </Text>
+            {hasExpandedContent && (
+              <Ionicons
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={13}
+                color="rgba(0,0,0,0.5)"
+              />
             )}
           </View>
+        </View>
 
-          {/* Attendee count */}
-          <View style={styles.attendeeRow}>
-            <Ionicons name="people-outline" size={13} color={colors.textMuted} />
-            <Text style={styles.attendeeText}>
-              {attendeeCount + signupCount > 0 ? `${attendeeCount + signupCount} going` : 'No RSVPs yet'}
+        {/* ── Body ───────────────────────────────────────────── */}
+        <View style={styles.body}>
+          {/* Title */}
+          <Text style={styles.title} numberOfLines={expanded ? undefined : 2}>
+            {event.title}
+          </Text>
+
+          {/* Venue */}
+          <Text style={styles.venue}>
+            {event.venue.name}
+            {event.venue.neighborhood ? `  ·  ${event.venue.neighborhood}` : ''}
+          </Text>
+
+          {/* Single meta row: cover · slot · N going */}
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>{event.coverCharge}</Text>
+            {event.slotDuration ? (
+              <>
+                <Text style={styles.metaDot}>·</Text>
+                <Text style={styles.metaText}>{event.slotDuration} slots</Text>
+              </>
+            ) : null}
+            <Text style={styles.metaDot}>·</Text>
+            <Text style={styles.metaText}>
+              {totalGoing > 0 ? `${totalGoing} going` : 'No RSVPs yet'}
             </Text>
           </View>
 
-          {/* Description */}
-          {event.description ? (
-            <Text style={styles.description} numberOfLines={expanded ? undefined : 2}>
-              {event.description}
+          {/* Genre hashtags */}
+          {event.genres.length > 0 && (
+            <Text style={styles.genres} numberOfLines={expanded ? undefined : 1}>
+              {(expanded ? event.genres : event.genres.slice(0, 5))
+                .map((g) => `#${g.toLowerCase().replace(/\s+/g, '')}`)
+                .join('  ')}
+              {!expanded && event.genres.length > 5 ? `  +${event.genres.length - 5}` : ''}
             </Text>
+          )}
+
+          {/* Description — expanded only */}
+          {expanded && event.description ? (
+            <Text style={styles.description}>{event.description}</Text>
           ) : null}
 
-          {/* ── Sign-up section ───────────────────────────────── */}
+          {/* ── Sign-up section (expanded) ─────────────────── */}
           {expanded && event.signupsEnabled && (
             <View style={styles.signupSection}>
-              {/* Counts row */}
+              {/* Slot counts */}
               <View style={styles.countsRow}>
                 {attendeeCount > 0 && (
-                  <View style={styles.countItem}>
-                    <Ionicons name="people-outline" size={13} color={colors.textMuted} />
-                    <Text style={styles.countText}>{attendeeCount} going</Text>
+                  <View style={styles.countChip}>
+                    <Ionicons name="people-outline" size={12} color={accentColor} />
+                    <Text style={[styles.countChipText, { color: accentColor }]}>{attendeeCount} going</Text>
                   </View>
                 )}
                 {signupCount > 0 && (
-                  <View style={styles.countItem}>
-                    <Ionicons name="mic-outline" size={13} color={colors.textMuted} />
-                    <Text style={styles.countText}>{signupCount} signed up</Text>
+                  <View style={styles.countChip}>
+                    <Ionicons name="mic-outline" size={12} color={accentColor} />
+                    <Text style={[styles.countChipText, { color: accentColor }]}>{signupCount} performing</Text>
                   </View>
                 )}
                 {slotsLeft !== null && (
-                  <View style={styles.countItem}>
+                  <View style={styles.countChip}>
                     <Ionicons
                       name={isFull ? 'lock-closed-outline' : 'ellipse-outline'}
-                      size={13}
-                      color={isFull ? colors.jam : colors.textMuted}
+                      size={12}
+                      color={isFull ? colors.jam : accentColor}
                     />
-                    <Text style={[styles.countText, isFull && { color: colors.jam }]}>
+                    <Text style={[styles.countChipText, { color: isFull ? colors.jam : accentColor }]}>
                       {isFull ? 'Full' : `${slotsLeft} left`}
                     </Text>
                   </View>
@@ -179,8 +192,8 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                 <TouchableOpacity
                   style={[
                     styles.actionBtn,
-                    styles.actionBtnSecondary,
-                    rsvped && styles.actionBtnActive,
+                    { borderColor: accentColor },
+                    rsvped && { backgroundColor: accentColor },
                     !isSignedIn && styles.actionBtnDisabled,
                   ]}
                   onPress={handleRsvp}
@@ -190,10 +203,13 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                   <Ionicons
                     name={rsvped ? 'checkmark-circle' : 'checkmark-circle-outline'}
                     size={15}
-                    color={!isSignedIn ? colors.textMuted : rsvped ? colors.bg : colors.textSecondary}
+                    color={!isSignedIn ? colors.textMuted : rsvped ? '#000' : accentColor}
                   />
-                  <Text style={[styles.actionBtnText, rsvped && styles.actionBtnTextActive, !isSignedIn && { color: colors.textMuted }]}>
-                    {rsvped ? 'Going' : "I'm Going"}
+                  <Text style={[
+                    styles.actionBtnText,
+                    { color: !isSignedIn ? colors.textMuted : rsvped ? '#000' : accentColor },
+                  ]}>
+                    {rsvped ? 'Going ✓' : "I'm Going"}
                   </Text>
                 </TouchableOpacity>
 
@@ -201,143 +217,75 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                   <TouchableOpacity
                     style={[
                       styles.actionBtn,
-                      styles.actionBtnPrimary,
+                      { borderColor: accentColor, backgroundColor: accentColor },
                       (isFull || !isSignedIn) && styles.actionBtnDisabled,
                     ]}
                     onPress={() => setSignUpModalVisible(true)}
                     disabled={isFull || !isSignedIn}
                     activeOpacity={0.85}
                   >
-                    <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : colors.bg} />
-                    <Text style={[styles.actionBtnPrimaryText, (isFull || !isSignedIn) && { color: colors.textMuted }]}>
-                      {isFull ? 'Full' : 'Sign Up to Perform'}
+                    <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : '#000'} />
+                    <Text style={[styles.actionBtnText, { color: (isFull || !isSignedIn) ? colors.textMuted : '#000' }]}>
+                      {isFull ? 'Full' : 'Sign Up'}
                     </Text>
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Sign-in hint */}
               {!isSignedIn && (
-                <View style={styles.signInHint}>
-                  <Ionicons name="lock-closed-outline" size={12} color={colors.textMuted} />
-                  <Text style={styles.signInHintText}>Sign in to RSVP or grab a performer slot</Text>
-                </View>
+                <Text style={styles.signInHint}>
+                  — Sign in to RSVP or grab a slot
+                </Text>
               )}
             </View>
           )}
 
-          {/* ── Expanded details ─────────────────────────────── */}
+          {/* ── Expanded details ───────────────────────────── */}
           {expanded && (
             <View style={styles.expandedSection}>
-              {/* Host edit button */}
               {isHost && (
                 <TouchableOpacity
-                  style={styles.editBtn}
+                  style={[styles.editBtn, { borderColor: accentColor }]}
                   onPress={() => setEditModalVisible(true)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="create-outline" size={15} color={colors.gold} />
-                  <Text style={styles.editBtnText}>Edit Event</Text>
+                  <Ionicons name="create-outline" size={14} color={accentColor} />
+                  <Text style={[styles.editBtnText, { color: accentColor }]}>Edit Event</Text>
                 </TouchableOpacity>
               )}
-              <View style={styles.detailRow}>
-                <Ionicons name="time-outline" size={14} color={accentColor} />
-                <Text style={styles.detailLabel}>Time</Text>
-                <Text style={styles.detailValue}>
-                  {formatTime(event.startsAt)}
-                  {event.endsAt ? ` – ${formatTime(event.endsAt)}` : ''}
-                </Text>
-              </View>
 
-              <View style={styles.detailRow}>
-                <Ionicons name="map-outline" size={14} color={accentColor} />
-                <Text style={styles.detailLabel}>Address</Text>
-                <Text style={styles.detailValue}>{event.venue.address}</Text>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Ionicons name="hand-left-outline" size={14} color={accentColor} />
-                <Text style={styles.detailLabel}>Sign up</Text>
-                <Text style={styles.detailValue}>
-                  {event.signUpMethod === 'door'
-                    ? 'At the door'
-                    : event.signUpMethod === 'online'
-                    ? 'Online'
-                    : 'Via app'}
-                </Text>
-              </View>
-
-              {event.slotDuration && (
-                <View style={styles.detailRow}>
-                  <Ionicons name="hourglass-outline" size={14} color={accentColor} />
-                  <Text style={styles.detailLabel}>Slot</Text>
-                  <Text style={styles.detailValue}>{event.slotDuration}</Text>
-                </View>
-              )}
-
-              <View style={styles.detailRow}>
-                <Ionicons
-                  name={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
-                  size={14}
-                  color={accentColor}
+              <View style={styles.detailGrid}>
+                <DetailItem label="Time" value={`${formatTime(event.startsAt)}${event.endsAt ? ` – ${formatTime(event.endsAt)}` : ''}`} />
+                <DetailItem label="Address" value={event.venue.address} />
+                <DetailItem
+                  label="Sign-up"
+                  value={event.signUpMethod === 'door' ? 'At the door' : event.signUpMethod === 'online' ? 'Online' : 'Via app'}
                 />
-                <Text style={styles.detailLabel}>Cover</Text>
-                <Text style={styles.detailValue}>{event.coverCharge}</Text>
+                {event.slotDuration && <DetailItem label="Slot" value={event.slotDuration} />}
+                <DetailItem label="Cover" value={event.coverCharge} />
+                {event.backline && event.backline.length > 0 && (
+                  <DetailItem label="Backline" value={event.backline.join(', ')} />
+                )}
+                {event.isRecurring && event.recurringDescription && (
+                  <DetailItem label="Recurring" value={event.recurringDescription} />
+                )}
               </View>
-
-              {event.backline && event.backline.length > 0 && (
-                <View style={styles.detailRow}>
-                  <Ionicons name="musical-notes-outline" size={14} color={accentColor} />
-                  <Text style={styles.detailLabel}>Backline</Text>
-                  <Text style={styles.detailValue}>{event.backline.join(', ')}</Text>
-                </View>
-              )}
-
-              {event.isRecurring && event.recurringDescription && (
-                <View style={styles.detailRow}>
-                  <Ionicons name="repeat" size={14} color={accentColor} />
-                  <Text style={styles.detailLabel}>Recurring</Text>
-                  <Text style={styles.detailValue}>{event.recurringDescription}</Text>
-                </View>
-              )}
 
               {event.venue.instagramHandle && (
                 <TouchableOpacity
-                  style={styles.detailRow}
+                  style={styles.instaRow}
                   onPress={() => {
                     const handle = event.venue.instagramHandle!.replace(/^@/, '');
                     Linking.openURL(`https://instagram.com/${handle}`);
                   }}
-                  accessibilityLabel={`Open ${event.venue.name} on Instagram`}
                 >
-                  <Ionicons name="logo-instagram" size={14} color={accentColor} />
-                  <Text style={styles.detailLabel}>Instagram</Text>
-                  <Text style={[styles.detailValue, styles.link]}>
+                  <Ionicons name="logo-instagram" size={14} color="#E1306C" />
+                  <Text style={styles.instaText}>
                     {event.venue.instagramHandle.startsWith('@')
                       ? event.venue.instagramHandle
                       : `@${event.venue.instagramHandle}`}
                   </Text>
                 </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* Footer chips — collapsed only */}
-          {!expanded && (
-            <View style={styles.footer}>
-              {event.isRecurring && event.recurringDescription && (
-                <FooterChip icon="repeat" label={event.recurringDescription} color={colors.textMuted} />
-              )}
-              {event.slotDuration && (
-                <FooterChip icon="time-outline" label={event.slotDuration} color={colors.textMuted} />
-              )}
-              <FooterChip
-                icon={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
-                label={event.coverCharge}
-                color={colors.textMuted}
-              />
-              {event.signUpMethod === 'door' && !event.signupsEnabled && (
-                <FooterChip icon="hand-left-outline" label="Sign up at door" color={colors.textMuted} />
               )}
             </View>
           )}
@@ -360,18 +308,20 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
   );
 }
 
-function FooterChip({ icon, label, color }: { icon: string; label: string; color: string }) {
+function DetailItem({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
   return (
-    <View style={chipStyles.chip}>
-      <Ionicons name={icon as any} size={11} color={color} />
-      <Text style={[chipStyles.label, { color }]}>{label}</Text>
+    <View style={detailStyles.row}>
+      <Text style={[detailStyles.label, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[detailStyles.value, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
 
-const chipStyles = StyleSheet.create({
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  label: { fontSize: 12 },
+const detailStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 8, paddingVertical: 5 },
+  label: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', width: 68, flexShrink: 0 },
+  value: { fontSize: 13, flex: 1, lineHeight: 18 },
 });
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
@@ -379,124 +329,154 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     card: {
       flexDirection: 'column',
       backgroundColor: colors.surface,
-      borderRadius: 20,
-      marginBottom: 14,
+      borderRadius: 2,
+      marginBottom: 20,
       overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.border,
-      elevation: 8,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
-      shadowRadius: 12,
+      borderWidth: 2,
+      // borderColor + shadowColor passed inline per event type
+      shadowOffset: { width: 5, height: 5 },
+      shadowOpacity: 1,
+      shadowRadius: 0,
+      elevation: 6,
     },
-    topStrip: { height: 3, width: '100%' },
-    content: { flex: 1, padding: 18, gap: 11 },
-    headerRow: {
+    typeHeader: {
+      paddingHorizontal: 14,
+      paddingVertical: 11,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    time: {
+    typeLabel: {
       fontSize: 11,
-      color: colors.textMuted,
+      fontWeight: '900',
+      letterSpacing: 1.8,
+      textTransform: 'uppercase',
+      color: 'rgba(0,0,0,0.75)',
+    },
+    typeHeaderRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    timeLabel: {
+      fontSize: 11,
       fontWeight: '700',
       letterSpacing: 0.5,
-      textTransform: 'uppercase',
+      color: 'rgba(0,0,0,0.55)',
     },
-    chevron: { marginLeft: 2 },
+    body: {
+      padding: 16,
+      gap: 9,
+    },
     title: {
-      fontSize: 22,
+      fontSize: 26,
       fontWeight: '900',
       color: colors.text,
-      letterSpacing: -0.8,
-      lineHeight: 28,
+      letterSpacing: -1,
+      lineHeight: 31,
     },
-    venueRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
-    venueName: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
-    separator: { color: colors.textMuted, fontSize: 13 },
-    neighborhood: { fontSize: 13, color: colors.textMuted },
-    genreRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-    genreTag: {
+    venue: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontWeight: '500',
+      letterSpacing: 0.1,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 5,
+    },
+    metaText: {
+      fontSize: 12,
+      color: colors.textMuted,
+      fontWeight: '600',
+    },
+    metaDot: {
+      fontSize: 12,
+      color: colors.border,
+      fontWeight: '400',
+    },
+    genres: {
+      fontSize: 12,
+      color: colors.textMuted,
+      fontWeight: '500',
+      letterSpacing: 0.2,
+      lineHeight: 20,
+    },
+    description: {
+      fontSize: 13,
+      color: colors.textMuted,
+      lineHeight: 21,
+      paddingTop: 4,
+    },
+    signupSection: {
+      gap: 10,
+      paddingTop: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: 4,
+    },
+    countsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    countChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
       paddingHorizontal: 10,
       paddingVertical: 4,
-      backgroundColor: 'transparent',
-      borderRadius: 20,
+      borderRadius: 2,
+      backgroundColor: colors.surfaceHigh,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    genreText: { fontSize: 11, color: colors.textMuted, fontWeight: '600', letterSpacing: 0.3 },
-    attendeeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    attendeeText: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
-    description: { fontSize: 13, color: colors.textMuted, lineHeight: 21 },
-    signupSection: {
-      gap: 10,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
+    countChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.3,
     },
-    countsRow: { flexDirection: 'row', gap: 14, flexWrap: 'wrap' },
-    countItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    countText: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
-    actionRow: { flexDirection: 'row', gap: 8 },
+    actionRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
     actionBtn: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 5,
+      gap: 6,
       paddingVertical: 10,
-      borderRadius: 12,
-      borderWidth: 1.5,
-    },
-    actionBtnSecondary: {
-      borderColor: colors.border,
+      borderRadius: 2,
+      borderWidth: 2,
       backgroundColor: 'transparent',
-    },
-    actionBtnActive: {
-      backgroundColor: colors.gold,
-      borderColor: colors.gold,
-    },
-    actionBtnPrimary: {
-      backgroundColor: colors.accent,
-      borderColor: colors.accent,
     },
     actionBtnDisabled: {
-      backgroundColor: 'transparent',
       borderColor: colors.border,
+      backgroundColor: 'transparent',
     },
     actionBtnText: {
-      fontSize: 12,
-      fontWeight: '700',
+      fontSize: 13,
+      fontWeight: '800',
       letterSpacing: 0.3,
-      color: colors.textSecondary,
-    },
-    actionBtnTextActive: { color: colors.bg },
-    actionBtnPrimaryText: {
-      fontSize: 12,
-      fontWeight: '700',
-      letterSpacing: 0.3,
-      color: '#FFFFFF',
     },
     signInHint: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 5,
-      paddingTop: 4,
-    },
-    signInHintText: {
       fontSize: 11,
       color: colors.textMuted,
       fontStyle: 'italic',
+      textAlign: 'center',
     },
     expandedSection: {
-      gap: 10,
-      paddingTop: 12,
-      marginTop: 2,
+      paddingTop: 14,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+      marginTop: 4,
+      gap: 4,
+    },
+    detailGrid: {
+      gap: 0,
     },
     editBtn: {
       flexDirection: 'row',
@@ -505,36 +485,25 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       alignSelf: 'flex-end',
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 10,
+      borderRadius: 2,
       borderWidth: 1.5,
-      borderColor: colors.accent,
-      backgroundColor: `${colors.accent}18`,
+      marginBottom: 8,
     },
     editBtnText: {
       fontSize: 12,
       fontWeight: '700',
-      color: colors.accent,
+      letterSpacing: 0.3,
     },
-    detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-    detailLabel: {
-      fontSize: 12,
-      color: colors.textMuted,
-      fontWeight: '700',
-      letterSpacing: 0.5,
-      textTransform: 'uppercase',
-      width: 72,
-      flexShrink: 0,
-    },
-    detailValue: { fontSize: 13, color: colors.text, flex: 1, lineHeight: 19 },
-    link: { color: '#E1306C', fontWeight: '600' },
-    footer: {
+    instaRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-      paddingTop: 12,
-      marginTop: 2,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
+      alignItems: 'center',
+      gap: 6,
+      paddingTop: 8,
+    },
+    instaText: {
+      fontSize: 13,
+      color: '#E1306C',
+      fontWeight: '600',
     },
   });
 }
