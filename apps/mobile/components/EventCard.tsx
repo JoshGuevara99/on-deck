@@ -147,7 +147,7 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
             </Text>
           ) : null}
 
-          {/* ── RSVP + Sign-up section ───────────────────────────────── */}
+          {/* ── Sign-up section (expanded only) ──────────────────────── */}
           {expanded && (
             <View style={styles.signupSection}>
               {/* Counts row — only when signups are enabled */}
@@ -180,47 +180,24 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                 </View>
               )}
 
-              {/* Action buttons */}
-              <View style={styles.actionRow}>
+              {/* Sign Up to Perform — only in expanded view */}
+              {event.signupsEnabled && currentEvent.signUpMethod !== 'door' && (
                 <TouchableOpacity
                   style={[
                     styles.actionBtn,
-                    styles.actionBtnSecondary,
-                    rsvped && styles.actionBtnActive,
-                    !isSignedIn && styles.actionBtnDisabled,
+                    styles.actionBtnPrimary,
+                    (isFull || !isSignedIn) && styles.actionBtnDisabled,
                   ]}
-                  onPress={handleRsvp}
-                  disabled={!isSignedIn}
-                  activeOpacity={0.8}
+                  onPress={() => setSignUpModalVisible(true)}
+                  disabled={isFull || !isSignedIn}
+                  activeOpacity={0.85}
                 >
-                  <Ionicons
-                    name={rsvped ? 'checkmark-circle' : 'checkmark-circle-outline'}
-                    size={15}
-                    color={!isSignedIn ? colors.textMuted : rsvped ? colors.bg : colors.textSecondary}
-                  />
-                  <Text style={[styles.actionBtnText, rsvped && styles.actionBtnTextActive, !isSignedIn && { color: colors.textMuted }]}>
-                    {rsvped ? 'Going' : "I'm Going"}
+                  <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : colors.bg} />
+                  <Text style={[styles.actionBtnPrimaryText, (isFull || !isSignedIn) && { color: colors.textMuted }]}>
+                    {isFull ? 'Full' : 'Sign Up to Perform'}
                   </Text>
                 </TouchableOpacity>
-
-                {event.signupsEnabled && currentEvent.signUpMethod !== 'door' && (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionBtn,
-                      styles.actionBtnPrimary,
-                      (isFull || !isSignedIn) && styles.actionBtnDisabled,
-                    ]}
-                    onPress={() => setSignUpModalVisible(true)}
-                    disabled={isFull || !isSignedIn}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : colors.bg} />
-                    <Text style={[styles.actionBtnPrimaryText, (isFull || !isSignedIn) && { color: colors.textMuted }]}>
-                      {isFull ? 'Full' : 'Sign Up to Perform'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              )}
 
               {/* Sign-in hint */}
               {!isSignedIn && (
@@ -348,6 +325,24 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
             </View>
           )}
         </View>
+
+        {/* ── RSVP button — right column, always visible ─── */}
+        <View style={styles.rsvpColumn}>
+          <TouchableOpacity
+            style={[styles.rsvpBtn, rsvped ? styles.rsvpBtnGoing : styles.rsvpBtnDefault, !isSignedIn && styles.rsvpBtnLocked]}
+            onPress={isSignedIn ? handleRsvp : undefined}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={rsvped ? 'checkmark' : 'add'}
+              size={22}
+              color={!isSignedIn ? colors.textMuted : '#fff'}
+            />
+            <Text style={[styles.rsvpBtnLabel, !isSignedIn && { color: colors.textMuted }]}>
+              {rsvped ? 'Going' : 'RSVP'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
 
       <SignUpModal
@@ -440,6 +435,49 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     countItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     countText: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
     actionRow: { flexDirection: 'row', gap: 8 },
+    rsvpColumn: {
+      width: 64,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingRight: 12,
+    },
+    rsvpBtn: {
+      width: 52,
+      height: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 13,
+      gap: 3,
+    },
+    rsvpBtnDefault: {
+      backgroundColor: '#6366f1',
+      shadowColor: '#6366f1',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.45,
+      shadowRadius: 6,
+      elevation: 5,
+    },
+    rsvpBtnGoing: {
+      backgroundColor: '#16a34a',
+      shadowColor: '#22c55e',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.45,
+      shadowRadius: 6,
+      elevation: 5,
+    },
+    rsvpBtnLocked: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    rsvpBtnLabel: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#fff',
+      letterSpacing: 0.3,
+    },
     actionBtn: {
       flex: 1,
       flexDirection: 'row',
