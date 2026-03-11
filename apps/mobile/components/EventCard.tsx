@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../context/ThemeContext';
 import { EventTypeBadge } from './EventTypeBadge';
@@ -20,6 +21,7 @@ interface Props {
 
 export function EventCard({ event, expanded = false, onPress }: Props) {
   const { colors } = useTheme();
+  const router = useRouter();
   const { isSignedIn, getToken, userId } = useAuth();
   const { attendingIds, addAttending, removeAttending } = useAttending();
   const accentColor = event.type === 'OPEN_MIC' ? colors.gold : colors.jam;
@@ -186,25 +188,17 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
                   style={[
                     styles.actionBtn,
                     styles.actionBtnPrimary,
-                    (isFull || !isSignedIn) && styles.actionBtnDisabled,
+                    isFull && styles.actionBtnDisabled,
                   ]}
-                  onPress={() => setSignUpModalVisible(true)}
-                  disabled={isFull || !isSignedIn}
+                  onPress={isSignedIn ? () => setSignUpModalVisible(true) : () => router.push('/(auth)/sign-in')}
+                  disabled={isFull}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="mic" size={15} color={(isFull || !isSignedIn) ? colors.textMuted : colors.bg} />
-                  <Text style={[styles.actionBtnPrimaryText, (isFull || !isSignedIn) && { color: colors.textMuted }]}>
+                  <Ionicons name="mic" size={15} color={isFull ? colors.textMuted : colors.bg} />
+                  <Text style={[styles.actionBtnPrimaryText, isFull && { color: colors.textMuted }]}>
                     {isFull ? 'Full' : 'Sign Up to Perform'}
                   </Text>
                 </TouchableOpacity>
-              )}
-
-              {/* Sign-in hint */}
-              {!isSignedIn && (
-                <View style={styles.signInHint}>
-                  <Ionicons name="lock-closed-outline" size={12} color={colors.textMuted} />
-                  <Text style={styles.signInHintText}>Sign in to RSVP or grab a performer slot</Text>
-                </View>
               )}
             </View>
           )}
@@ -329,16 +323,16 @@ export function EventCard({ event, expanded = false, onPress }: Props) {
         {/* ── RSVP button — right column, always visible ─── */}
         <View style={styles.rsvpColumn}>
           <TouchableOpacity
-            style={[styles.rsvpBtn, rsvped ? styles.rsvpBtnGoing : styles.rsvpBtnDefault, !isSignedIn && styles.rsvpBtnLocked]}
-            onPress={isSignedIn ? handleRsvp : undefined}
+            style={[styles.rsvpBtn, rsvped ? styles.rsvpBtnGoing : styles.rsvpBtnDefault]}
+            onPress={isSignedIn ? handleRsvp : () => router.push('/(auth)/sign-in')}
             activeOpacity={0.8}
           >
             <Ionicons
               name={rsvped ? 'checkmark' : 'add'}
               size={22}
-              color={!isSignedIn ? colors.textMuted : '#fff'}
+              color="#fff"
             />
-            <Text style={[styles.rsvpBtnLabel, !isSignedIn && { color: colors.textMuted }]}>
+            <Text style={styles.rsvpBtnLabel}>
               {rsvped ? 'Going' : 'RSVP'}
             </Text>
           </TouchableOpacity>
@@ -465,13 +459,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       shadowRadius: 6,
       elevation: 5,
     },
-    rsvpBtnLocked: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowOpacity: 0,
-      elevation: 0,
-    },
     rsvpBtnLabel: {
       fontSize: 10,
       fontWeight: '700',
@@ -488,14 +475,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderRadius: 8,
       borderWidth: 1,
     },
-    actionBtnSecondary: {
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    actionBtnActive: {
-      backgroundColor: '#22c55e',
-      borderColor: '#22c55e',
-    },
     actionBtnPrimary: {
       backgroundColor: colors.jam,
       borderColor: colors.jam,
@@ -504,28 +483,10 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       backgroundColor: colors.surface,
       borderColor: colors.border,
     },
-    actionBtnText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.textSecondary,
-    },
-    actionBtnTextActive: { color: colors.bg },
     actionBtnPrimaryText: {
       fontSize: 12,
       fontWeight: '700',
       color: colors.bg,
-    },
-    signInHint: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 5,
-      paddingTop: 4,
-    },
-    signInHintText: {
-      fontSize: 11,
-      color: colors.textMuted,
-      fontStyle: 'italic',
     },
     expandedSection: {
       gap: 10,
