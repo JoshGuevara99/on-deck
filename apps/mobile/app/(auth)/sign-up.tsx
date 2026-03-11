@@ -2,6 +2,7 @@ import { useSignUp } from '@clerk/clerk-expo'
 import { Link, useRouter } from 'expo-router'
 import * as React from 'react'
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../context/ThemeContext'
 
 export default function SignUpPage() {
@@ -88,6 +89,12 @@ export default function SignUpPage() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      {router.canGoBack() && (
+        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color={colors.textSecondary} />
+          <Text style={[styles.backText, { color: colors.textSecondary }]}>Back</Text>
+        </Pressable>
+      )}
       <Text style={[styles.title, { color: colors.text }]}>Sign up</Text>
       <Text style={[styles.label, { color: colors.text }]}>Email address</Text>
       <TextInput
@@ -141,6 +148,17 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     gap: 12,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  backText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
   title: {
     fontSize: 28,
