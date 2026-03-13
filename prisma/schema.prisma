@@ -40,11 +40,6 @@ enum SignupStatus {
   REMOVED
 }
 
-enum UserRole {
-  ATTENDEE
-  HOST
-}
-
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -53,8 +48,6 @@ model User {
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  role             UserRole       @default(ATTENDEE)
 
   // Performer identity — all optional
   displayName      String?

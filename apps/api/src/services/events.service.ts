@@ -84,39 +84,30 @@ export async function listEvents(filters: EventFilters = {}) {
 export async function createEvent(input: CreateEventInput, submittedBy?: string) {
   const venue = await findOrCreateVenue(input.venue);
 
-  const [event] = await prisma.$transaction([
-    prisma.event.create({
-      data: {
-        venueId: venue.id,
-        city: input.venue.city,
-        state: input.venue.state,
-        title: input.title,
-        description: input.description ?? null,
-        startsAt: new Date(input.startsAt),
-        endsAt: input.endsAt ? new Date(input.endsAt) : null,
-        type: input.type,
-        genres: input.genres ?? [],
-        coverCharge: input.coverCharge ?? null,
-        slotDuration: input.slotDuration ?? null,
-        backline: input.backline ?? [],
-        signUpMethod: input.signUpMethod ?? 'DOOR',
-        isRecurring: input.isRecurring ?? false,
-        recurringDescription: input.recurringDescription ?? null,
-        submittedBy: submittedBy ?? null,
-        hostId: submittedBy ?? null,
-        signupsEnabled: input.signupsEnabled ?? false,
-        maxSlots: input.maxSlots ?? null,
-      },
-      ...WITH_VENUE_AND_COUNTS,
-    }),
-    // Promote submitter to HOST role if they have an account
-    ...(submittedBy
-      ? [prisma.user.update({
-          where: { id: submittedBy },
-          data: { role: 'HOST' },
-        })]
-      : []),
-  ]);
+  const event = await prisma.event.create({
+    data: {
+      venueId: venue.id,
+      city: input.venue.city,
+      state: input.venue.state,
+      title: input.title,
+      description: input.description ?? null,
+      startsAt: new Date(input.startsAt),
+      endsAt: input.endsAt ? new Date(input.endsAt) : null,
+      type: input.type,
+      genres: input.genres ?? [],
+      coverCharge: input.coverCharge ?? null,
+      slotDuration: input.slotDuration ?? null,
+      backline: input.backline ?? [],
+      signUpMethod: input.signUpMethod ?? 'DOOR',
+      isRecurring: input.isRecurring ?? false,
+      recurringDescription: input.recurringDescription ?? null,
+      submittedBy: submittedBy ?? null,
+      hostId: submittedBy ?? null,
+      signupsEnabled: input.signupsEnabled ?? false,
+      maxSlots: input.maxSlots ?? null,
+    },
+    ...WITH_VENUE_AND_COUNTS,
+  });
 
   return toApiEvent(event);
 }
