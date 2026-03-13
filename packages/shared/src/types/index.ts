@@ -15,6 +15,15 @@ export type PerformerType = 'MUSICIAN' | 'COMEDIAN' | 'POET' | 'STORYTELLER' | '
 
 export type SignupStatus = 'SIGNED_UP' | 'PERFORMED' | 'NO_SHOW' | 'REMOVED';
 
+export interface UnsplashPhoto {
+  id: string;
+  url: string;
+  thumb: string;
+  downloadLocation: string;
+  photographer: string;
+  photographerUrl: string;
+}
+
 // ─── Core models (API response shapes) ───────────────────────────────────────
 
 export interface User {
@@ -65,6 +74,11 @@ export interface ApiEvent {
   signupsEnabled: boolean;
   maxSlots: number | null;
   hostId: string | null;
+  coverImageUrl: string | null;
+  coverImageThumb: string | null;
+  coverImagePhotographer: string | null;
+  coverImagePhotographerUrl: string | null;
+  coverImageAttribution: string | null;
   signupCount: number;
   attendeeCount: number;
   venue: Venue;
@@ -117,6 +131,11 @@ export interface CreateEventInput {
   signupsEnabled?: boolean;
   maxSlots?: number;
   venue: VenueInput;
+  coverImageUrl?: string;
+  coverImageThumb?: string;
+  coverImagePhotographer?: string;
+  coverImagePhotographerUrl?: string;
+  coverImageAttribution?: string;
 }
 
 export interface UpdateEventInput {

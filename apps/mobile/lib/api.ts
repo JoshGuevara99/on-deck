@@ -7,6 +7,7 @@ import type {
   CreateSignupInput,
   UpdateSignupInput,
   User,
+  UnsplashPhoto,
 } from '@on-deck/shared';
 import type { MockEvent, MockVenue } from '../constants/mock-data';
 
@@ -99,6 +100,11 @@ function toMockEvent(e: ApiEvent): MockEvent {
     signupCount: e.signupCount,
     attendeeCount: e.attendeeCount,
     hostId: e.hostId,
+    coverImageUrl: e.coverImageUrl ?? undefined,
+    coverImageThumb: e.coverImageThumb ?? undefined,
+    coverImagePhotographer: e.coverImagePhotographer ?? undefined,
+    coverImagePhotographerUrl: e.coverImagePhotographerUrl ?? undefined,
+    coverImageAttribution: e.coverImageAttribution ?? undefined,
   };
 }
 
@@ -132,6 +138,11 @@ export const apiClient = {
       const data = await patch<ApiEvent>(`/events/${eventId}`, input, token);
       return toMockEvent(data);
     },
+
+    async getById(eventId: string): Promise<MockEvent> {
+      const data = await get<ApiEvent>(`/events/${eventId}`);
+      return toMockEvent(data);
+    },
   },
 
   signups: {
@@ -159,6 +170,15 @@ export const apiClient = {
 
     async cancel(eventId: string, token: string): Promise<void> {
       return del(`/events/${eventId}/attendees`, token);
+    },
+  },
+
+  unsplash: {
+    async search(q: string): Promise<UnsplashPhoto[]> {
+      return get<UnsplashPhoto[]>('/unsplash/search', { q });
+    },
+    async track(url: string): Promise<void> {
+      await get('/unsplash/track', { url });
     },
   },
 

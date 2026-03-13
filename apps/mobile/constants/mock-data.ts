@@ -32,4 +32,9 @@ export interface MockEvent {
   signupCount: number;
   attendeeCount: number;
   hostId: string | null;
+  coverImageUrl?: string;
+  coverImageThumb?: string;
+  coverImagePhotographer?: string;
+  coverImagePhotographerUrl?: string;
+  coverImageAttribution?: string;
 }

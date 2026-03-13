@@ -7,6 +7,7 @@ import { usersRouter } from './routes/users';
 import { signupsRouter } from './routes/signups';
 import { attendeesRouter } from './routes/attendees';
 import { notFound, errorHandler } from './middleware/errors';
+import { unsplashRouter } from './routes/unsplash';
 
 export const app = express();
 
@@ -20,6 +21,7 @@ app.use('/events', eventsRouter);
 app.use('/events/:id/signups', signupsRouter);
 app.use('/events/:id/attendees', attendeesRouter);
 app.use('/users', usersRouter);
+app.use('/unsplash', unsplashRouter);
 
 // ─── Error handling (must be last) ───────────────────────────────────────────
 app.use(notFound);

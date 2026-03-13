@@ -119,14 +119,8 @@ export default function DiscoverScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const activeExtraCount = Object.values(extraFilters).filter(Boolean).length;
-
-  function toggleExpand(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
@@ -346,8 +340,6 @@ export default function DiscoverScreen() {
                 <EventCard
                   key={e.id}
                   event={e}
-                  expanded={expandedId === e.id}
-                  onPress={() => toggleExpand(e.id)}
                 />
               ))}
             </View>

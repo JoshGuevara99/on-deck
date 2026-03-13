@@ -81,6 +81,15 @@ export async function listEvents(filters: EventFilters = {}) {
   return events.map(toApiEvent);
 }
 
+export async function getEvent(id: string) {
+  const event = await prisma.event.findUnique({
+    where: { id },
+    ...WITH_VENUE_AND_COUNTS,
+  });
+  if (!event) return null;
+  return toApiEvent(event);
+}
+
 export async function createEvent(input: CreateEventInput, submittedBy?: string) {
   const venue = await findOrCreateVenue(input.venue);
 
@@ -105,6 +114,11 @@ export async function createEvent(input: CreateEventInput, submittedBy?: string)
       hostId: submittedBy ?? null,
       signupsEnabled: input.signupsEnabled ?? false,
       maxSlots: input.maxSlots ?? null,
+      coverImageUrl: input.coverImageUrl ?? null,
+      coverImageThumb: input.coverImageThumb ?? null,
+      coverImagePhotographer: input.coverImagePhotographer ?? null,
+      coverImagePhotographerUrl: input.coverImagePhotographerUrl ?? null,
+      coverImageAttribution: input.coverImageAttribution ?? null,
     },
     ...WITH_VENUE_AND_COUNTS,
   });
@@ -130,6 +144,11 @@ export async function updateEvent(
     recurringDescription: string | null;
     signupsEnabled: boolean;
     maxSlots: number | null;
+    coverImageUrl?: string | null;
+    coverImageThumb?: string | null;
+    coverImagePhotographer?: string | null;
+    coverImagePhotographerUrl?: string | null;
+    coverImageAttribution?: string | null;
   }>
 ) {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
@@ -153,6 +172,11 @@ export async function updateEvent(
       ...(input.recurringDescription !== undefined && { recurringDescription: input.recurringDescription }),
       ...(input.signupsEnabled !== undefined && { signupsEnabled: input.signupsEnabled }),
       ...(input.maxSlots !== undefined && { maxSlots: input.maxSlots }),
+      ...(input.coverImageUrl !== undefined && { coverImageUrl: input.coverImageUrl }),
+      ...(input.coverImageThumb !== undefined && { coverImageThumb: input.coverImageThumb }),
+      ...(input.coverImagePhotographer !== undefined && { coverImagePhotographer: input.coverImagePhotographer }),
+      ...(input.coverImagePhotographerUrl !== undefined && { coverImagePhotographerUrl: input.coverImagePhotographerUrl }),
+      ...(input.coverImageAttribution !== undefined && { coverImageAttribution: input.coverImageAttribution }),
     },
     ...WITH_VENUE_AND_COUNTS,
   });

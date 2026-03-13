@@ -115,6 +115,12 @@ model Event {
   maxSlots       Int?
   hostId         String? // user who manages this event's roster
 
+  coverImageUrl          String?
+  coverImageThumb        String?
+  coverImagePhotographer String?
+  coverImagePhotographerUrl String?
+  coverImageAttribution  String?
+
   venue     Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
   submitter User?           @relation(fields: [submittedBy], references: [id])
   host      User?           @relation("HostedEvents", fields: [hostId], references: [id])

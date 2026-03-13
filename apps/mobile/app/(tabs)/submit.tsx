@@ -11,7 +11,11 @@ import {
   Switch,
   useWindowDimensions,
   StatusBar,
+  Image,
+  Alert,
 } from 'react-native';
+import { UnsplashPickerModal } from '../../components/UnsplashPickerModal';
+import type { UnsplashPhoto } from '@on-deck/shared';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
@@ -21,6 +25,16 @@ import type { EventType, CreateEventInput } from '@on-deck/shared';
 import type { MockEvent } from '../../constants/mock-data';
 
 const GOLD_TYPES = new Set<EventType>(['OPEN_MIC', 'JAM_SESSION', 'OPEN_STAGE']);
+
+const EVENT_TYPE_QUERIES: Record<EventType, string> = {
+  OPEN_MIC: 'open mic performance stage',
+  JAM_SESSION: 'jazz jam session music',
+  COMEDY_NIGHT: 'comedy show stand up',
+  POETRY_SLAM: 'poetry spoken word',
+  OPEN_STAGE: 'live music stage performance',
+  WORKSHOP: 'art workshop creative',
+  OPEN_STUDIO: 'art studio creative',
+};
 
 const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
   { value: 'OPEN_MIC',     label: 'Open Mic' },
@@ -100,6 +114,7 @@ function buildCreateInput(
   form: FormState,
   signupsEnabled: boolean,
   maxSlots: string,
+  photo: UnsplashPhoto | null,
 ): CreateEventInput {
   const isRecurring = /every/i.test(form.date);
   return {
@@ -123,6 +138,11 @@ function buildCreateInput(
       city: form.city.trim(),
       state: form.state.trim().toUpperCase(),
     },
+    coverImageUrl: photo?.url,
+    coverImageThumb: photo?.thumb,
+    coverImagePhotographer: photo?.photographer,
+    coverImagePhotographerUrl: photo?.photographerUrl,
+    coverImageAttribution: photo ? `Photo by ${photo.photographer} on Unsplash` : undefined,
   };
 }
 
@@ -380,6 +400,8 @@ export default function SubmitScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [signupsEnabled, setSignupsEnabled] = useState(false);
   const [maxSlots, setMaxSlots] = useState('10');
+  const [coverPhoto, setCoverPhoto] = useState<UnsplashPhoto | null>(null);
+  const [showUnsplash, setShowUnsplash] = useState(false);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -395,14 +417,34 @@ export default function SubmitScreen() {
       return;
     }
 
+    if (!coverPhoto) {
+      Alert.alert(
+        'Add a Cover Photo?',
+        'A photo makes your event stand out.',
+        [
+          { text: 'Browse Unsplash', onPress: () => setShowUnsplash(true) },
+          {
+            text: 'Skip',
+            style: 'destructive',
+            onPress: () => doSubmit(null),
+          },
+        ]
+      );
+      return;
+    }
+
+    await doSubmit(coverPhoto);
+  }
+
+  async function doSubmit(photo: UnsplashPhoto | null) {
     try {
       setSubmitting(true);
       setSubmitError(null);
       const token = await getToken();
-      const input = buildCreateInput(eventType, form, signupsEnabled, maxSlots);
+      const input = buildCreateInput(eventType, form, signupsEnabled, maxSlots, photo);
       const newEvent = await addEvent(input, token ?? undefined);
       setSubmittedEvent(newEvent);
-    } catch (e) {
+    } catch {
       setSubmitError('Could not submit the event. Please try again.');
     } finally {
       setSubmitting(false);
@@ -414,6 +456,7 @@ export default function SubmitScreen() {
     setErrors({});
     setEventType('OPEN_MIC');
     setSubmittedEvent(null);
+    setCoverPhoto(null);
   }
 
   function handleGoToDiscover() {
@@ -578,6 +621,40 @@ export default function SubmitScreen() {
           colors={colors}
         />
 
+        {/* Cover Photo */}
+        <Label text="Cover Photo" colors={colors} />
+        <TouchableOpacity
+          style={[
+            styles.photoPickerBtn,
+            coverPhoto && styles.photoPickerBtnSelected,
+            { borderColor: coverPhoto ? colors.gold : colors.border, backgroundColor: colors.surface },
+          ]}
+          onPress={() => setShowUnsplash(true)}
+          activeOpacity={0.85}
+        >
+          {coverPhoto ? (
+            <>
+              <Image source={{ uri: coverPhoto.thumb }} style={styles.photoPreview} resizeMode="cover" />
+              <View style={styles.photoOverlay}>
+                <Ionicons name="camera" size={20} color="#fff" />
+                <Text style={styles.photoOverlayText}>Change photo</Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.photoPlaceholder}>
+              <Ionicons name="image-outline" size={28} color={colors.textMuted} />
+              <Text style={[styles.photoPlaceholderText, { color: colors.textMuted }]}>
+                Browse Unsplash for a cover photo
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        {coverPhoto && (
+          <Text style={[styles.photoCredit, { color: colors.textMuted }]}>
+            Photo by {coverPhoto.photographer} on Unsplash
+          </Text>
+        )}
+
         {/* Sign-up management toggle */}
         <View style={[styles.signupsToggleCard, { backgroundColor: colors.surfaceHigh, borderColor: colors.border }]}>
           <View style={styles.signupsToggleRow}>
@@ -629,6 +706,16 @@ export default function SubmitScreen() {
           or promoters.
         </Text>
       </ScrollView>
+
+      <UnsplashPickerModal
+        visible={showUnsplash}
+        query={EVENT_TYPE_QUERIES[eventType]}
+        onSelect={(photo) => {
+          setCoverPhoto(photo);
+          setShowUnsplash(false);
+        }}
+        onClose={() => setShowUnsplash(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -823,6 +910,52 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       textAlign: 'center',
       lineHeight: 18,
       paddingHorizontal: 12,
+    },
+    photoPickerBtn: {
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderRadius: 12,
+      overflow: 'hidden',
+      minHeight: 120,
+    },
+    photoPickerBtnSelected: {
+      borderStyle: 'solid',
+    },
+    photoPreview: {
+      width: '100%',
+      height: 160,
+    },
+    photoOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+    },
+    photoOverlayText: {
+      color: '#fff',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    photoPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 32,
+    },
+    photoPlaceholderText: {
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    photoCredit: {
+      fontSize: 11,
+      marginTop: -4,
+      marginLeft: 4,
     },
   });
 }

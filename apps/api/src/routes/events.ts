@@ -46,6 +46,11 @@ const CreateEventSchema = z.object({
   recurringDescription: z.string().optional(),
   signupsEnabled: z.boolean().optional().default(false),
   maxSlots: z.number().int().min(1).optional(),
+  coverImageUrl: z.string().url().optional(),
+  coverImageThumb: z.string().url().optional(),
+  coverImagePhotographer: z.string().optional(),
+  coverImagePhotographerUrl: z.string().url().optional(),
+  coverImageAttribution: z.string().optional(),
   venue: VenueInputSchema,
 });
 
@@ -64,6 +69,11 @@ const UpdateEventSchema = z.object({
   recurringDescription: z.string().nullable().optional(),
   signupsEnabled: z.boolean().optional(),
   maxSlots: z.number().int().min(1).nullable().optional(),
+  coverImageUrl: z.string().url().nullable().optional(),
+  coverImageThumb: z.string().url().nullable().optional(),
+  coverImagePhotographer: z.string().nullable().optional(),
+  coverImagePhotographerUrl: z.string().url().nullable().optional(),
+  coverImageAttribution: z.string().nullable().optional(),
 });
 
 const ListQuerySchema = z.object({
@@ -99,6 +109,18 @@ eventsRouter.get('/', async (req, res, next) => {
     const filters = ListQuerySchema.parse(req.query);
     const events = await eventsService.listEvents(filters);
     res.json(events);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** GET /events/:id */
+eventsRouter.get('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params as { id: string };
+    const event = await eventsService.getEvent(id);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    res.json(event);
   } catch (err) {
     next(err);
   }
