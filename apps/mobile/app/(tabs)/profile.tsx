@@ -484,28 +484,6 @@ export default function ProfileScreen() {
           />
         )}
 
-        {/* ── Settings ───────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <Ionicons name="settings-outline" size={16} color={colors.gold} />
-              <Text style={styles.sectionTitle}>Settings</Text>
-            </View>
-          </View>
-          <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="moon" size={18} color={colors.gold} />
-                <View>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Mode</Text>
-                  <Text style={[styles.settingDesc, { color: colors.textMuted }]}>
-                    Always on
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -682,14 +660,5 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
     },
     statusText: { fontSize: 11, fontWeight: '700' },
-    settingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: 16,
-    },
-    settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-    settingLabel: { fontSize: 15, fontWeight: '600' },
-    settingDesc: { fontSize: 12, marginTop: 1 },
   });
 }
