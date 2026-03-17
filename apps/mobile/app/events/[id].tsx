@@ -215,33 +215,15 @@ export default function EventDetailScreen() {
             )}
           </View>
 
-          {/* Signup stats */}
-          {event.signupsEnabled && (
-            <View style={[styles.statsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.text }]}>{attendeeCount}</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Going</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.text }]}>{signupCount}</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Signed Up</Text>
-              </View>
-              {slotsLeft !== null && (
-                <>
-                  <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statNum, { color: isFull ? colors.jam : colors.text }]}>
-                      {isFull ? '0' : slotsLeft}
-                    </Text>
-                    <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                      {isFull ? 'Full' : 'Slots left'}
-                    </Text>
-                  </View>
-                </>
-              )}
-            </View>
-          )}
+          {/* Stats */}
+          <View style={styles.statsRow}>
+            <Ionicons name="people-outline" size={14} color={colors.textMuted} />
+            <Text style={[styles.statsText, { color: colors.textMuted }]}>
+              {attendeeCount} going
+              {event.signupsEnabled && ` · ${signupCount} signed up`}
+              {event.signupsEnabled && slotsLeft !== null && (isFull ? ' · Full' : ` · ${slotsLeft} slots left`)}
+            </Text>
+          </View>
 
           {/* Action buttons */}
           <View style={styles.actions}>
@@ -423,14 +405,11 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
 
     statsRow: {
       flexDirection: 'row',
-      borderRadius: 14,
-      borderWidth: 1,
-      overflow: 'hidden',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 8,
     },
-    statItem: { flex: 1, alignItems: 'center', paddingVertical: 16, gap: 4 },
-    statNum: { fontSize: 22, fontWeight: '800' },
-    statLabel: { fontSize: 12, fontWeight: '500' },
-    statDivider: { width: 1 },
+    statsText: { fontSize: 13 },
 
     actions: { gap: 10, marginTop: 4 },
     rsvpBtn: {
