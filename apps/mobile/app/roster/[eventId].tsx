@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../../context/ThemeContext';
 import { apiClient } from '../../lib/api';
-import type { EventSignup } from '@on-deck/shared';
+import type { EventSignup, PublicSignup } from '@on-deck/shared';
 
 const STATUS_LABELS: Record<string, string> = {
   SIGNED_UP: 'Up next',
@@ -48,7 +48,7 @@ export default function RosterScreen() {
     try {
       const token = await getToken();
       const data = await apiClient.signups.get(eventId!, token ?? undefined);
-      if (Array.isArray(data)) setSignups(data);
+      if (Array.isArray(data)) setSignups(data as EventSignup[]);
     } catch {
       Alert.alert('Error', 'Could not load the roster.');
     } finally {

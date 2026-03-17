@@ -135,7 +135,9 @@ model EventSignup {
   performerType PerformerType?
   instruments   String[]      @default([])
   genres        String[]      @default([])
-  note          String?       // optional note to host
+  note             String?  // optional note to host
+  instagramHandle  String?  // optional — shown on public roster
+  tiktokHandle     String?  // optional — shown on public roster
   slotOrder     Int?          // set by host when reordering
   status        SignupStatus  @default(SIGNED_UP)
   createdAt     DateTime      @default(now())

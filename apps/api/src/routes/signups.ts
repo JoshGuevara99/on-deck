@@ -13,6 +13,8 @@ const CreateSignupSchema = z.object({
   instruments: z.array(z.string()).optional().default([]),
   genres: z.array(z.string()).optional().default([]),
   note: z.string().max(280).optional(),
+  instagramHandle: z.string().max(60).optional(),
+  tiktokHandle: z.string().max(60).optional(),
 });
 
 const UpdateSignupSchema = z.object({
@@ -20,9 +22,23 @@ const UpdateSignupSchema = z.object({
   status: z.enum(['SIGNED_UP', 'PERFORMED', 'NO_SHOW', 'REMOVED']).optional(),
 });
 
+/** Fields included in every public roster response */
+const PUBLIC_SIGNUP_SELECT = {
+  id: true,
+  slotOrder: true,
+  status: true,
+  performerType: true,
+  instruments: true,
+  genres: true,
+  instagramHandle: true,
+  tiktokHandle: true,
+  createdAt: true,
+  user: { select: { displayName: true, name: true } },
+} as const;
+
 /** GET /events/:id/signups
- * Public: returns count only.
- * Host: returns full roster.
+ * Everyone: returns public roster (name, type, socials — no note/userId).
+ * Host: returns full roster including note and userId.
  */
 signupsRouter.get('/', async (req, res, next) => {
   try {
@@ -32,7 +48,7 @@ signupsRouter.get('/', async (req, res, next) => {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    const isHost = userId && event.hostId === userId;
+    const isHost = !!userId && event.hostId === userId;
 
     if (isHost) {
       const signups = await prisma.eventSignup.findMany({
@@ -43,10 +59,13 @@ signupsRouter.get('/', async (req, res, next) => {
       return res.json(signups);
     }
 
-    const count = await prisma.eventSignup.count({
-      where: { eventId, status: { not: 'REMOVED' } },
+    // Public: active slots only, safe fields
+    const signups = await prisma.eventSignup.findMany({
+      where: { eventId, status: { in: ['SIGNED_UP', 'PERFORMED'] } },
+      select: PUBLIC_SIGNUP_SELECT,
+      orderBy: [{ slotOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    return res.json({ count });
+    return res.json(signups);
   } catch (err) {
     next(err);
   }
@@ -81,6 +100,8 @@ signupsRouter.post('/', requireAuth, async (req, res, next) => {
         instruments: input.instruments,
         genres: input.genres,
         note: input.note ?? null,
+        instagramHandle: input.instagramHandle?.trim() || null,
+        tiktokHandle: input.tiktokHandle?.trim() || null,
       },
       include: { user: { select: { id: true, displayName: true, name: true } } },
     });

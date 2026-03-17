@@ -3,6 +3,7 @@ import type {
   CreateEventInput,
   EventFilters,
   EventSignup,
+  PublicSignup,
   UpdateUserInput,
   CreateSignupInput,
   UpdateSignupInput,
@@ -146,7 +147,7 @@ export const apiClient = {
   },
 
   signups: {
-    async get(eventId: string, token?: string): Promise<{ count: number } | EventSignup[]> {
+    async get(eventId: string, token?: string): Promise<EventSignup[] | PublicSignup[]> {
       return get(`/events/${eventId}/signups`, undefined, token);
     },
 
