@@ -22,26 +22,26 @@ export const DARK_COLORS = {
 } as const;
 
 export const LIGHT_COLORS = {
-  // Backgrounds
-  bg: '#FAFAFA',
-  surface: '#FFFFFF',
-  surfaceHigh: '#F2F2F7',
+  // Backgrounds — warm cream/stone tones (no pure whites or cold grays)
+  bg: '#FAF8F4',        // warm off-white, slight parchment
+  surface: '#FFFDF8',   // warm white for cards and inputs
+  surfaceHigh: '#F0EAE0', // warm stone for elevated/nested surfaces
 
-  // Accents — slightly deeper for light-background contrast
-  gold: '#C8820A',
-  jam: '#C4402E',
+  // Accents — warm stage tones, tuned for legibility on light backgrounds
+  gold: '#B8741A',      // rich golden amber (open mic)
+  jam: '#BE3B28',       // terracotta red (jam session)
 
-  // Text
-  text: '#0D0D1A',
-  textSecondary: '#44445A',
-  textMuted: '#888899',
+  // Text — warm-tinted darks; no cold blue-grays
+  text: '#1A1410',         // warm near-black
+  textSecondary: '#574A3E', // warm medium brown — ~7:1 on bg ✓ WCAG AA
+  textMuted: '#7A6E62',    // warm taupe — ~4.5:1 on bg ✓ WCAG AA
 
-  // UI chrome
-  border: '#E0E0EC',
-  tabBar: '#FFFFFF',
+  // UI chrome — sandy, warm
+  border: '#E2D9CC',    // warm sand border
+  tabBar: '#FFFDF8',    // warm white tab bar
 
   // Status
-  live: '#16A34A',
+  live: '#1A7A38',
 } as const;
 
 // Backward-compat alias — still compiles anywhere that hasn't migrated to useTheme() yet.

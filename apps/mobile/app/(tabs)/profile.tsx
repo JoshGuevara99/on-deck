@@ -33,7 +33,7 @@ const PERFORMER_TYPES: { value: PerformerType; label: string }[] = [
 ];
 
 export default function ProfileScreen() {
-  const { colors, theme, toggleTheme } = useTheme();
+  const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -144,7 +144,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle="light-content"
         backgroundColor={colors.bg}
       />
       <ScrollView
@@ -495,26 +495,14 @@ export default function ProfileScreen() {
           <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
-                <Ionicons
-                  name={theme === 'dark' ? 'moon' : 'sunny'}
-                  size={18}
-                  color={colors.gold}
-                />
+                <Ionicons name="moon" size={18} color={colors.gold} />
                 <View>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>
-                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-                  </Text>
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Mode</Text>
                   <Text style={[styles.settingDesc, { color: colors.textMuted }]}>
-                    {theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                    Always on
                   </Text>
                 </View>
               </View>
-              <Switch
-                value={theme === 'dark'}
-                onValueChange={toggleTheme}
-                trackColor={{ false: colors.border, true: colors.gold }}
-                thumbColor={colors.surface}
-              />
             </View>
           </View>
         </View>
