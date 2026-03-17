@@ -58,7 +58,7 @@ export function EventCard({ event }: Props) {
       {/* Cover image */}
       {(event.coverImageUrl || event.coverImageThumb) && (
         <Image
-          source={{ uri: event.coverImageThumb ?? event.coverImageUrl }}
+          source={{ uri: event.coverImageUrl ?? event.coverImageThumb }}
           style={styles.coverImage}
           resizeMode="cover"
         />
