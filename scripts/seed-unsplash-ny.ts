@@ -1,8 +1,8 @@
 /**
- * One-off script: populate cover images for all New York events using Unsplash.
+ * One-off script: populate cover images for all events that are missing one.
  *
  * Fetches one page (9 photos) per event type, then round-robins them across
- * all events of that type — so we never hit Unsplash more than ~6 times total.
+ * all events of that type — so we never hit Unsplash more than ~7 times total.
  *
  * Usage (from repo root):
  *   npx tsx scripts/seed-unsplash-ny.ts
@@ -74,26 +74,19 @@ async function trackDownload(downloadLocation: string): Promise<void> {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  // Fetch all NY events that have no cover image yet
+  // Fetch all events that have no cover image yet
   const events = await prisma.event.findMany({
-    where: {
-      OR: [
-        { city: { equals: 'New York', mode: 'insensitive' } },
-        { city: { equals: 'New York City', mode: 'insensitive' } },
-        { city: { equals: 'NYC', mode: 'insensitive' } },
-      ],
-      coverImageUrl: null,
-    },
+    where: { coverImageUrl: null },
     select: { id: true, title: true, type: true },
     orderBy: { startsAt: 'asc' },
   });
 
   if (events.length === 0) {
-    console.log('No NY events without cover images found.');
+    console.log('No events without cover images found.');
     return;
   }
 
-  console.log(`Found ${events.length} NY events to update.\n`);
+  console.log(`Found ${events.length} events to update.\n`);
 
   // Group by event type
   const byType = new Map<EventType, typeof events>();

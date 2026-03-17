@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,11 @@ import {
   useWindowDimensions,
   StatusBar,
   Image,
-  Alert,
 } from 'react-native';
 import { UnsplashPickerModal } from '../../components/UnsplashPickerModal';
 import type { UnsplashPhoto } from '@on-deck/shared';
 import { useRouter } from 'expo-router';
+import { apiClient } from '../../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../../context/ThemeContext';
@@ -402,8 +402,25 @@ export default function SubmitScreen() {
   const [maxSlots, setMaxSlots] = useState('10');
   const [coverPhoto, setCoverPhoto] = useState<UnsplashPhoto | null>(null);
   const [showUnsplash, setShowUnsplash] = useState(false);
+  // Track whether the current photo was auto-selected (vs. manually picked)
+  const photoManuallySelected = useRef(false);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  // Auto-fetch a cover photo when event type changes, unless user manually picked one
+  useEffect(() => {
+    if (photoManuallySelected.current) return;
+    let cancelled = false;
+    apiClient.unsplash.search(EVENT_TYPE_QUERIES[eventType])
+      .then((photos) => {
+        if (cancelled || photos.length === 0) return;
+        const photo = photos[Math.floor(Math.random() * photos.length)];
+        setCoverPhoto(photo);
+        apiClient.unsplash.track(photo.downloadLocation).catch(() => {});
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [eventType]);
 
   const setField = useCallback((key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -416,23 +433,6 @@ export default function SubmitScreen() {
       setErrors(validationErrors);
       return;
     }
-
-    if (!coverPhoto) {
-      Alert.alert(
-        'Add a Cover Photo?',
-        'A photo makes your event stand out.',
-        [
-          { text: 'Browse Unsplash', onPress: () => setShowUnsplash(true) },
-          {
-            text: 'Skip',
-            style: 'destructive',
-            onPress: () => doSubmit(null),
-          },
-        ]
-      );
-      return;
-    }
-
     await doSubmit(coverPhoto);
   }
 
@@ -457,6 +457,7 @@ export default function SubmitScreen() {
     setEventType('OPEN_MIC');
     setSubmittedEvent(null);
     setCoverPhoto(null);
+    photoManuallySelected.current = false;
   }
 
   function handleGoToDiscover() {
@@ -711,6 +712,7 @@ export default function SubmitScreen() {
         visible={showUnsplash}
         query={EVENT_TYPE_QUERIES[eventType]}
         onSelect={(photo) => {
+          photoManuallySelected.current = true;
           setCoverPhoto(photo);
           setShowUnsplash(false);
         }}
