@@ -36,6 +36,7 @@
     "expo-dev-client": "~4.0.29",
     "expo-image-picker": "^55.0.12",
     "expo-linking": "~6.3.1",
+    "expo-location": "~17.0.1",
     "expo-router": "~3.5.23",
     "expo-secure-store": "~13.0.2",
     "expo-status-bar": "~1.12.1",

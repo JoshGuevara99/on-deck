@@ -11,9 +11,9 @@ import PlatformMap from '../../components/PlatformMap';
 import type { VenueMarker } from '../../components/PlatformMap';
 
 export default function MapScreen() {
-  const { colors, theme } = useTheme();
+  const { colors } = useTheme();
   const { events } = useEvents();
-  const { selectedCity, setCity } = useLocation();
+  const { selectedCity, setCity, locationPermission } = useLocation();
   const [showCityPicker, setShowCityPicker] = useState(false);
 
   const venues = useMemo<VenueMarker[]>(() => {
@@ -36,10 +36,7 @@ export default function MapScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.bg}
-      />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>Nearby</Text>
@@ -64,7 +61,7 @@ export default function MapScreen() {
         </View>
       </View>
 
-      <PlatformMap venues={venues} selectedCity={selectedCity} />
+      <PlatformMap venues={venues} selectedCity={selectedCity} locationGranted={locationPermission === true} />
 
       <CityPickerModal
         visible={showCityPicker}

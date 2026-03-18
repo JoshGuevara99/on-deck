@@ -13,6 +13,7 @@ export interface VenueMarker {
 interface Props {
   venues: VenueMarker[];
   selectedCity: CityOption | null;
+  locationGranted: boolean;
 }
 
 // LeafletMap accesses `window` at import time, so it must never be loaded

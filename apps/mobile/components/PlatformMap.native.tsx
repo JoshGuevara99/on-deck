@@ -8,9 +8,10 @@ import type { CityOption } from '../constants/cities';
 interface Props {
   venues: VenueMarker[];
   selectedCity: CityOption | null;
+  locationGranted: boolean;
 }
 
-export default function PlatformMap({ venues, selectedCity }: Props) {
+export default function PlatformMap({ venues, selectedCity, locationGranted }: Props) {
   const mapRef = useRef<MapView>(null);
   const center = selectedCity ?? DEFAULT_CITY;
 
@@ -31,6 +32,8 @@ export default function PlatformMap({ venues, selectedCity }: Props) {
     <MapView
       ref={mapRef}
       style={styles.map}
+      showsUserLocation={locationGranted}
+      showsMyLocationButton={locationGranted}
       initialRegion={{
         latitude: center.lat ?? DEFAULT_CITY.lat!,
         longitude: center.lng ?? DEFAULT_CITY.lng!,
