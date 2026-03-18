@@ -22,21 +22,33 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function requestLocation() {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      let status: string;
+      try {
+        const result = await Location.requestForegroundPermissionsAsync();
+        status = result.status;
+      } catch {
+        // Native module not available (dev client not rebuilt yet) — degrade gracefully
+        setLocationPermission(false);
+        return;
+      }
 
       if (cancelled) return;
 
       if (status !== 'granted') {
         setLocationPermission(false);
-        // Keep DEFAULT_CITY as fallback
         return;
       }
 
       setLocationPermission(true);
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      let position: Location.LocationObject;
+      try {
+        position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      } catch {
+        return;
+      }
 
       if (cancelled) return;
 
@@ -44,7 +56,13 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setDeviceCoords({ lat: latitude, lng: longitude });
 
       // Reverse-geocode to find the city name
-      const results = await Location.reverseGeocodeAsync({ latitude, longitude });
+      let results: Location.LocationGeocodedAddress[];
+      try {
+        results = await Location.reverseGeocodeAsync({ latitude, longitude });
+      } catch {
+        return;
+      }
+
       if (cancelled || !results[0]) return;
 
       const detectedCity = results[0].city ?? results[0].subregion ?? results[0].region;
@@ -59,7 +77,6 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         setSelectedCity(preset);
       } else {
         // Not in our preset list — create a custom entry centred on device coords
-        // so the map still snaps to the right place and the API filter uses the real city
         setSelectedCity({
           city: detectedCity,
           label: [detectedCity, results[0].region].filter(Boolean).join(', '),
@@ -70,7 +87,6 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
 
     requestLocation().catch(() => {
-      // Permission prompt rejected or location services off — stay on default city
       if (!cancelled) setLocationPermission(false);
     });
 
