@@ -425,29 +425,36 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     row: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',   // all columns pin to the top
       borderWidth: 1,
       borderRadius: 12,
       padding: 12,
       gap: 8,
       backgroundColor: colors.surfaceHigh,
     },
+    // Reorder arrows — fixed width, centred vertically in their column
     reorderBtns: {
+      width: 20,
       flexShrink: 0,
       alignItems: 'center',
+      paddingTop: 4,
+      gap: 2,
     },
     reorderBtn: {
       padding: 2,
     },
+    // Slot number column — fixed width, items centred horizontally
     slotCol: {
+      width: 32,
       flexShrink: 0,
       alignItems: 'center',
       gap: 2,
+      paddingTop: 2,
     },
     onDeckLabel: {
-      fontSize: 8,
+      fontSize: 7,
       fontWeight: '800',
-      letterSpacing: 0.5,
+      letterSpacing: 0.4,
       textTransform: 'uppercase',
     },
     slotNum: {
@@ -467,11 +474,13 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       fontSize: 13,
       fontWeight: '800',
     },
+    // Avatar column — fixed size, slight top offset to align with first line of text
     avatar: {
       width: 36,
       height: 36,
       borderRadius: 8,
       flexShrink: 0,
+      marginTop: 1,
     },
     avatarFallback: {
       alignItems: 'center',
@@ -481,7 +490,8 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       fontSize: 15,
       fontWeight: '700',
     },
-    rowInfo: { flex: 1, minWidth: 0, gap: 2 },
+    // Text column — takes all remaining space, clips instead of wrapping into neighbours
+    rowInfo: { flex: 1, minWidth: 0, gap: 2, paddingTop: 1 },
     performerName: { fontSize: 14, fontWeight: '700' },
     performerType: { fontSize: 12, fontWeight: '500' },
     performerDetail: { fontSize: 12 },
@@ -492,12 +502,13 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       paddingTop: 6,
       borderTopWidth: 1,
     },
+    // Actions column — fixed width, stacked buttons, pins to top
     rowActions: {
+      width: 64,
+      flexShrink: 0,
       flexDirection: 'column',
       gap: 5,
       alignItems: 'stretch',
-      flexShrink: 0,
-      width: 62,
     },
     actionChip: {
       flexDirection: 'row',
@@ -505,7 +516,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       justifyContent: 'center',
       gap: 3,
       paddingVertical: 5,
-      paddingHorizontal: 8,
+      paddingHorizontal: 4,
       borderRadius: 8,
       borderWidth: 1,
     },
