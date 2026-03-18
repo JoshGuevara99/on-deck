@@ -485,7 +485,9 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
-                <Ionicons name="add-circle-outline" size={16} color={colors.gold} />
+                <TouchableOpacity onPress={() => router.push('/(tabs)/submit')} activeOpacity={0.7}>
+                  <Ionicons name="add-circle-outline" size={16} color={colors.gold} />
+                </TouchableOpacity>
                 <Text style={styles.sectionTitle}>My Submissions</Text>
               </View>
             </View>
