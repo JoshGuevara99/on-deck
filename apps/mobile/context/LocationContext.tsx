@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as Location from 'expo-location';
 import { PRESET_CITIES, DEFAULT_CITY, type CityOption } from '../constants/cities';
 
 interface LocationContextValue {
   selectedCity: CityOption | null;
   setCity: (city: CityOption | null) => void;
-  /** true = granted, false = denied, null = not yet asked */
+  /** true = granted, false = denied/unavailable, null = not yet asked */
   locationPermission: boolean | null;
   /** Raw device coords — used for the blue dot on the map */
   deviceCoords: { lat: number; lng: number } | null;
@@ -22,16 +21,17 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function requestLocation() {
-      let status: string;
+      // Dynamic import so a missing native module fails here (catchable)
+      // rather than crashing the whole module at parse time.
+      let Location: typeof import('expo-location');
       try {
-        const result = await Location.requestForegroundPermissionsAsync();
-        status = result.status;
+        Location = await import('expo-location');
       } catch {
-        // Native module not available (dev client not rebuilt yet) — degrade gracefully
-        setLocationPermission(false);
+        if (!cancelled) setLocationPermission(false);
         return;
       }
 
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (cancelled) return;
 
       if (status !== 'granted') {
@@ -41,34 +41,20 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
       setLocationPermission(true);
 
-      let position: Location.LocationObject;
-      try {
-        position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-      } catch {
-        return;
-      }
-
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
       if (cancelled) return;
 
       const { latitude, longitude } = position.coords;
       setDeviceCoords({ lat: latitude, lng: longitude });
 
-      // Reverse-geocode to find the city name
-      let results: Location.LocationGeocodedAddress[];
-      try {
-        results = await Location.reverseGeocodeAsync({ latitude, longitude });
-      } catch {
-        return;
-      }
-
+      const results = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (cancelled || !results[0]) return;
 
       const detectedCity = results[0].city ?? results[0].subregion ?? results[0].region;
       if (!detectedCity) return;
 
-      // Try to match against a preset city (case-insensitive)
       const preset = PRESET_CITIES.find(
         (c) => c.city.toLowerCase() === detectedCity.toLowerCase()
       );
@@ -76,7 +62,6 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       if (preset) {
         setSelectedCity(preset);
       } else {
-        // Not in our preset list — create a custom entry centred on device coords
         setSelectedCity({
           city: detectedCity,
           label: [detectedCity, results[0].region].filter(Boolean).join(', '),
