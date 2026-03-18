@@ -245,21 +245,26 @@ export default function RosterScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Slot number — stays fixed regardless of done/skip */}
+                {/* Slot number — turns green when done, stays numbered when skipped */}
                 <View
                   style={[
                     styles.slotNum,
-                    { backgroundColor: isInactive ? colors.surface : `${colors.gold}20` },
+                    {
+                      backgroundColor: isDone
+                        ? `${colors.live}25`
+                        : `${colors.gold}20`,
+                    },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.slotNumText,
-                      { color: isInactive ? colors.textMuted : colors.gold },
-                    ]}
-                  >
-                    {index + 1}
-                  </Text>
+                  {isDone ? (
+                    <Ionicons name="checkmark" size={14} color={colors.live} />
+                  ) : (
+                    <Text
+                      style={[styles.slotNumText, { color: colors.gold }]}
+                    >
+                      {index + 1}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Avatar */}
@@ -311,12 +316,12 @@ export default function RosterScreen() {
                       <TouchableOpacity
                         style={[
                           styles.actionChip,
-                          { backgroundColor: `${colors.live}20`, borderColor: `${colors.live}50` },
+                          { backgroundColor: `${colors.gold}20`, borderColor: `${colors.gold}50` },
                         ]}
                         onPress={() => markStatus(signup, 'PERFORMED')}
                       >
-                        <Ionicons name="checkmark" size={14} color={colors.live} />
-                        <Text style={[styles.actionChipText, { color: colors.live }]}>Done</Text>
+                        <Ionicons name="checkmark" size={14} color={colors.gold} />
+                        <Text style={[styles.actionChipText, { color: colors.gold }]}>Done</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[
