@@ -134,6 +134,14 @@ export default function RosterScreen() {
   const performed = active.filter((s) => s.status === 'PERFORMED').length;
   const remaining = active.filter((s) => s.status === 'SIGNED_UP').length;
 
+  // First and second still-waiting performers
+  const waitingIndices = active
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => s.status === 'SIGNED_UP')
+    .map(({ i }) => i);
+  const currentIdx = waitingIndices[0] ?? -1;
+  const onDeckIdx = waitingIndices[1] ?? -1;
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar
@@ -210,12 +218,14 @@ export default function RosterScreen() {
             const isDone = signup.status === 'PERFORMED';
             const isSkipped = signup.status === 'NO_SHOW';
             const isInactive = isDone || isSkipped;
+            const isCurrent = index === currentIdx;
+            const isOnDeck = index === onDeckIdx;
 
             return (
               <View
                 style={[
                   styles.row,
-                  { borderColor: isInactive ? colors.border : isDone ? `${colors.live}40` : colors.border },
+                  { borderColor: isCurrent ? `${colors.live}50` : colors.border },
                   isInactive && { opacity: 0.45 },
                 ]}
               >
@@ -245,26 +255,33 @@ export default function RosterScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Slot number — turns green when done, stays numbered when skipped */}
-                <View
-                  style={[
-                    styles.slotNum,
-                    {
-                      backgroundColor: isDone
-                        ? `${colors.live}25`
-                        : `${colors.gold}20`,
-                    },
-                  ]}
-                >
-                  {isDone ? (
-                    <Ionicons name="checkmark" size={14} color={colors.live} />
-                  ) : (
-                    <Text
-                      style={[styles.slotNumText, { color: colors.gold }]}
-                    >
-                      {index + 1}
-                    </Text>
+                {/* Slot number col — "On Deck" label + number badge stacked */}
+                <View style={styles.slotCol}>
+                  {isOnDeck && (
+                    <Text style={[styles.onDeckLabel, { color: colors.gold }]}>On Deck</Text>
                   )}
+                  <View
+                    style={[
+                      styles.slotNum,
+                      {
+                        backgroundColor: isDone
+                          ? `${colors.live}25`
+                          : isCurrent
+                          ? `${colors.jam}20`
+                          : `${colors.gold}20`,
+                      },
+                    ]}
+                  >
+                    {isDone ? (
+                      <Ionicons name="checkmark" size={14} color={colors.live} />
+                    ) : isCurrent ? (
+                      <View style={styles.liveDot} />
+                    ) : (
+                      <Text style={[styles.slotNumText, { color: colors.gold }]}>
+                        {index + 1}
+                      </Text>
+                    )}
+                  </View>
                 </View>
 
                 {/* Avatar */}
@@ -278,7 +295,7 @@ export default function RosterScreen() {
                   </View>
                 )}
 
-                {/* Name + details — flex:1 with minWidth:0 prevents text overflow */}
+                {/* Name + details */}
                 <View style={styles.rowInfo}>
                   <Text style={[styles.performerName, { color: colors.text }]} numberOfLines={1}>
                     {name}
@@ -306,33 +323,37 @@ export default function RosterScreen() {
                     <ActivityIndicator color={colors.live} size="small" />
                   ) : isInactive ? (
                     <TouchableOpacity
-                      style={[styles.actionChip, { borderColor: colors.border }]}
+                      style={[styles.actionChip, { backgroundColor: '#1A3A5C', borderColor: '#2A5A8C' }]}
                       onPress={() => markStatus(signup, 'SIGNED_UP')}
                     >
-                      <Text style={[styles.actionChipText, { color: colors.textMuted }]}>Undo</Text>
+                      <Text style={[styles.actionChipText, { color: '#5AABF0' }]}>Undo</Text>
                     </TouchableOpacity>
-                  ) : (
+                  ) : isCurrent ? (
                     <>
                       <TouchableOpacity
                         style={[
                           styles.actionChip,
-                          { backgroundColor: `${colors.gold}20`, borderColor: `${colors.gold}50` },
+                          { backgroundColor: `${colors.live}20`, borderColor: `${colors.live}50` },
                         ]}
                         onPress={() => markStatus(signup, 'PERFORMED')}
                       >
-                        <Ionicons name="checkmark" size={14} color={colors.gold} />
-                        <Text style={[styles.actionChipText, { color: colors.gold }]}>Done</Text>
+                        <Ionicons name="checkmark" size={14} color={colors.live} />
+                        <Text style={[styles.actionChipText, { color: colors.live }]}>Done</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[
-                          styles.actionChip,
-                          { borderColor: colors.border },
-                        ]}
+                        style={[styles.actionChip, { backgroundColor: `${colors.jam}15`, borderColor: `${colors.jam}40` }]}
                         onPress={() => markStatus(signup, 'NO_SHOW')}
                       >
-                        <Text style={[styles.actionChipText, { color: colors.textMuted }]}>Skip</Text>
+                        <Text style={[styles.actionChipText, { color: colors.jam }]}>Skip</Text>
                       </TouchableOpacity>
                     </>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.actionChip, { backgroundColor: `${colors.jam}15`, borderColor: `${colors.jam}40` }]}
+                      onPress={() => markStatus(signup, 'NO_SHOW')}
+                    >
+                      <Text style={[styles.actionChipText, { color: colors.jam }]}>Skip</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
               </View>
@@ -418,13 +439,29 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     reorderBtn: {
       padding: 2,
     },
+    slotCol: {
+      flexShrink: 0,
+      alignItems: 'center',
+      gap: 2,
+    },
+    onDeckLabel: {
+      fontSize: 8,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
     slotNum: {
       width: 28,
       height: 28,
       borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      flexShrink: 0,
+    },
+    liveDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: '#E8553E',
     },
     slotNumText: {
       fontSize: 13,
