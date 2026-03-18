@@ -306,7 +306,52 @@ export default function EventDetailScreen() {
                 LINEUP · {lineup.filter(s => s.status === 'SIGNED_UP').length} on deck
               </Text>
 
-              {lineup.length === 0 ? (
+              {!isSignedIn ? (
+                // ── Blur gate for unauthenticated users ────────────────
+                <View style={styles.blurGate}>
+                  {/* Ghost skeleton rows — hint at real content */}
+                  <View pointerEvents="none">
+                    {[0.18, 0.11, 0.06, 0.03].map((opacity, i) => (
+                      <View key={i} style={[styles.lineupRow, { borderBottomColor: colors.border, opacity }]}>
+                        <View style={[styles.lineupNum, { backgroundColor: colors.surfaceHigh, width: 22, height: 16, borderRadius: 4 }]} />
+                        <View style={[styles.lineupAvatar, { backgroundColor: colors.surfaceHigh }]} />
+                        <View style={styles.lineupInfo}>
+                          <View style={{ height: 14, backgroundColor: colors.surfaceHigh, borderRadius: 4, width: `${52 + i * 8}%` }} />
+                          <View style={{ height: 10, backgroundColor: colors.surfaceHigh, borderRadius: 4, width: `${30 + i * 5}%`, marginTop: 5 }} />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Gradient fade + CTA overlay */}
+                  <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+                    {/* Simulated gradient: transparent → solid */}
+                    <View style={{ flex: 1 }} />
+                    <View style={{ height: 48, backgroundColor: colors.bg + '55' }} />
+                    <View style={{ height: 48, backgroundColor: colors.bg + 'AA' }} />
+                    <View style={{ height: 48, backgroundColor: colors.bg + 'EE' }} />
+                    {/* CTA card */}
+                    <View style={[styles.blurCta, { backgroundColor: colors.bg }]}>
+                      <View style={[styles.blurCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <Ionicons name="lock-closed-outline" size={26} color={colors.textMuted} />
+                        <View style={{ gap: 4, alignItems: 'center' }}>
+                          <Text style={[styles.blurTitle, { color: colors.text }]}>Who's performing tonight?</Text>
+                          <Text style={[styles.blurSub, { color: colors.textMuted }]}>
+                            Sign in to see the full lineup.
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.blurBtn, { backgroundColor: accentColor }]}
+                          onPress={() => router.push('/(auth)/sign-in')}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={[styles.blurBtnText, { color: colors.bg }]}>Sign In</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ) : lineup.length === 0 ? (
                 <Text style={[styles.lineupEmpty, { color: colors.textMuted }]}>
                   No one's signed up yet — be first.
                 </Text>
@@ -610,6 +655,47 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     lineupAvatarInitials: {
       fontSize: 13,
       fontWeight: '800',
+    },
+
+    // Blur gate
+    blurGate: {
+      position: 'relative',
+      overflow: 'hidden',
+      minHeight: 280,
+    },
+    blurCta: {
+      paddingHorizontal: 4,
+      paddingBottom: 8,
+      alignItems: 'center',
+    },
+    blurCard: {
+      width: '100%',
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 24,
+      alignItems: 'center',
+      gap: 14,
+    },
+    blurTitle: {
+      fontSize: 17,
+      fontWeight: '800',
+      textAlign: 'center',
+      letterSpacing: -0.2,
+    },
+    blurSub: {
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    blurBtn: {
+      borderRadius: 10,
+      paddingVertical: 13,
+      paddingHorizontal: 40,
+      marginTop: 4,
+    },
+    blurBtnText: {
+      fontSize: 15,
+      fontWeight: '800',
+      letterSpacing: 0.3,
     },
   });
 }
