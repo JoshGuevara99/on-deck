@@ -208,14 +208,15 @@ export default function RosterScreen() {
             ].join(', ');
 
             const isDone = signup.status === 'PERFORMED';
-            const isNoShow = signup.status === 'NO_SHOW';
+            const isSkipped = signup.status === 'NO_SHOW';
+            const isInactive = isDone || isSkipped;
 
             return (
               <View
                 style={[
                   styles.row,
-                  { borderColor: colors.border },
-                  isDone && { opacity: 0.5 },
+                  { borderColor: isInactive ? colors.border : isDone ? `${colors.live}40` : colors.border },
+                  isInactive && { opacity: 0.45 },
                 ]}
               >
                 {/* Up/down reorder */}
@@ -244,17 +245,17 @@ export default function RosterScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Slot number */}
+                {/* Slot number — stays fixed regardless of done/skip */}
                 <View
                   style={[
                     styles.slotNum,
-                    { backgroundColor: isDone ? colors.surface : `${colors.gold}20` },
+                    { backgroundColor: isInactive ? colors.surface : `${colors.gold}20` },
                   ]}
                 >
                   <Text
                     style={[
                       styles.slotNumText,
-                      { color: isDone ? colors.textMuted : colors.gold },
+                      { color: isInactive ? colors.textMuted : colors.gold },
                     ]}
                   >
                     {index + 1}
@@ -272,11 +273,13 @@ export default function RosterScreen() {
                   </View>
                 )}
 
-                {/* Name + details */}
+                {/* Name + details — flex:1 with minWidth:0 prevents text overflow */}
                 <View style={styles.rowInfo}>
-                  <Text style={[styles.performerName, { color: colors.text }]}>{name}</Text>
+                  <Text style={[styles.performerName, { color: colors.text }]} numberOfLines={1}>
+                    {name}
+                  </Text>
                   {typeLabel && (
-                    <Text style={[styles.performerType, { color: colors.textMuted }]}>
+                    <Text style={[styles.performerType, { color: colors.textMuted }]} numberOfLines={1}>
                       {typeLabel}
                     </Text>
                   )}
@@ -286,7 +289,7 @@ export default function RosterScreen() {
                     </Text>
                   ) : null}
                   {signup.note ? (
-                    <Text style={[styles.note, { color: colors.textMuted, borderColor: colors.border }]}>
+                    <Text style={[styles.note, { color: colors.textMuted, borderColor: colors.border }]} numberOfLines={2}>
                       "{signup.note}"
                     </Text>
                   ) : null}
@@ -295,8 +298,8 @@ export default function RosterScreen() {
                 {/* Actions */}
                 <View style={styles.rowActions}>
                   {updating === signup.id ? (
-                    <ActivityIndicator color={colors.gold} size="small" />
-                  ) : isDone ? (
+                    <ActivityIndicator color={colors.live} size="small" />
+                  ) : isInactive ? (
                     <TouchableOpacity
                       style={[styles.actionChip, { borderColor: colors.border }]}
                       onPress={() => markStatus(signup, 'SIGNED_UP')}
@@ -308,23 +311,21 @@ export default function RosterScreen() {
                       <TouchableOpacity
                         style={[
                           styles.actionChip,
-                          { backgroundColor: `${colors.gold}20`, borderColor: `${colors.gold}50` },
+                          { backgroundColor: `${colors.live}20`, borderColor: `${colors.live}50` },
                         ]}
                         onPress={() => markStatus(signup, 'PERFORMED')}
                       >
-                        <Ionicons name="checkmark" size={14} color={colors.gold} />
-                        <Text style={[styles.actionChipText, { color: colors.gold }]}>Done</Text>
+                        <Ionicons name="checkmark" size={14} color={colors.live} />
+                        <Text style={[styles.actionChipText, { color: colors.live }]}>Done</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[
                           styles.actionChip,
-                          { backgroundColor: `${colors.jam}15`, borderColor: `${colors.jam}40` },
+                          { borderColor: colors.border },
                         ]}
                         onPress={() => markStatus(signup, 'NO_SHOW')}
                       >
-                        <Text style={[styles.actionChipText, { color: colors.jam }]}>
-                          {isNoShow ? 'No-show' : 'Skip'}
-                        </Text>
+                        <Text style={[styles.actionChipText, { color: colors.textMuted }]}>Skip</Text>
                       </TouchableOpacity>
                     </>
                   )}
@@ -402,7 +403,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
       borderRadius: 12,
       padding: 12,
-      gap: 10,
+      gap: 8,
       backgroundColor: colors.surfaceHigh,
     },
     reorderBtns: {
@@ -438,7 +439,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       fontSize: 15,
       fontWeight: '700',
     },
-    rowInfo: { flex: 1, gap: 2 },
+    rowInfo: { flex: 1, minWidth: 0, gap: 2 },
     performerName: { fontSize: 14, fontWeight: '700' },
     performerType: { fontSize: 12, fontWeight: '500' },
     performerDetail: { fontSize: 12 },
@@ -450,18 +451,20 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderTopWidth: 1,
     },
     rowActions: {
-      flexDirection: 'row',
-      gap: 6,
-      alignItems: 'center',
+      flexDirection: 'column',
+      gap: 5,
+      alignItems: 'stretch',
       flexShrink: 0,
+      width: 62,
     },
     actionChip: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: 3,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: 20,
+      paddingVertical: 5,
+      paddingHorizontal: 8,
+      borderRadius: 8,
       borderWidth: 1,
     },
     actionChipText: {
