@@ -35,5 +35,8 @@ prisma/migrations/*/migration_lock.toml
 # Logs
 *.log
 
+# Local notes — not for version control
+ideas.md
+
 #claude
 CLAUDE.md
