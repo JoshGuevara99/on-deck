@@ -41,11 +41,15 @@ export default function RosterScreen() {
   const [togglingSignups, setTogglingSignups] = useState(false);
   const [eventTitle, setEventTitle] = useState('');
   const saveOrderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // getToken is stable from Clerk but not memoized — store in a ref so load
+  // doesn't change on every render and cause an infinite fetch loop.
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       const [data, event] = await Promise.all([
         apiClient.signups.get(eventId!, token ?? undefined),
         apiClient.events.getById(eventId!),
@@ -63,11 +67,16 @@ export default function RosterScreen() {
     } finally {
       setLoading(false);
     }
-  }, [eventId, getToken]);
+  }, [eventId]); // intentionally omit getToken — using ref above
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => {
+    if (saveOrderTimer.current) clearTimeout(saveOrderTimer.current);
+  }, []);
 
   function moveSlot(index: number, direction: 'up' | 'down') {
     const newList = [...signups];
@@ -79,7 +88,7 @@ export default function RosterScreen() {
     if (saveOrderTimer.current) clearTimeout(saveOrderTimer.current);
     saveOrderTimer.current = setTimeout(async () => {
       try {
-        const token = await getToken();
+        const token = await getTokenRef.current();
         await Promise.all(
           newList.map((s, idx) =>
             apiClient.signups.update(eventId!, s.id, { slotOrder: idx }, token!),
@@ -98,7 +107,7 @@ export default function RosterScreen() {
   ) {
     setUpdating(signup.id);
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       const updated = await apiClient.signups.update(eventId!, signup.id, { status }, token!);
       setSignups((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     } catch {
@@ -111,7 +120,7 @@ export default function RosterScreen() {
   async function toggleSignups(value: boolean) {
     setTogglingSignups(true);
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       await apiClient.events.update(eventId!, { signupsEnabled: value }, token!);
       setSignupsEnabled(value);
     } catch {
