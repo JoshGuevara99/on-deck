@@ -9,13 +9,21 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ondeck.app"
+      "bundleIdentifier": "com.ondeck.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to show nearby events.",
+        "NSLocationAlwaysUsageDescription": "This app uses your location to show nearby events."
+      }
     },
     "android": {
       "package": "com.ondeck.app",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
