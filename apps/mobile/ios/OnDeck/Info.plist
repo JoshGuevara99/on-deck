@@ -85,5 +85,9 @@
     <string>Light</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>This app uses your location to show nearby events.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>This app uses your location to show nearby events.</string>
   </dict>
 </plist>
