@@ -23,6 +23,8 @@ interface Props {
     instruments: string[];
     genres: string[];
     note?: string;
+    instagramHandle?: string;
+    tiktokHandle?: string;
   }) => Promise<{ slotPosition: number }>;
 }
 
@@ -42,6 +44,8 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
   const [instruments, setInstruments] = useState('');
   const [genres, setGenres] = useState('');
   const [note, setNote] = useState('');
+  const [instagramHandle, setInstagramHandle] = useState('');
+  const [tiktokHandle, setTiktokHandle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slotPosition, setSlotPosition] = useState<number | null>(null);
@@ -51,6 +55,8 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
     setInstruments('');
     setGenres('');
     setNote('');
+    setInstagramHandle('');
+    setTiktokHandle('');
     setError(null);
     setSlotPosition(null);
   }
@@ -69,6 +75,8 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
         instruments: instruments.split(',').map((s) => s.trim()).filter(Boolean),
         genres: genres.split(',').map((s) => s.trim()).filter(Boolean),
         note: note.trim() || undefined,
+        instagramHandle: instagramHandle.trim().replace(/^@/, '') || undefined,
+        tiktokHandle: tiktokHandle.trim().replace(/^@/, '') || undefined,
       });
       setSlotPosition(result.slotPosition);
     } catch (e: any) {
@@ -105,6 +113,14 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
             <Text style={styles.successSub}>
               You're <Text style={{ color: colors.gold, fontWeight: '800' }}>#{slotPosition}</Text> tonight at {event.venue.name}.
             </Text>
+            {(instagramHandle.trim() || tiktokHandle.trim()) && (
+              <Text style={[styles.successSocials, { color: colors.textMuted }]}>
+                {[
+                  instagramHandle.trim() && `@${instagramHandle.trim().replace(/^@/, '')} on Instagram`,
+                  tiktokHandle.trim() && `@${tiktokHandle.trim().replace(/^@/, '')} on TikTok`,
+                ].filter(Boolean).join(' · ')}
+              </Text>
+            )}
             <TouchableOpacity style={[styles.doneBtn, { backgroundColor: colors.gold }]} onPress={handleClose}>
               <Text style={[styles.doneBtnText, { color: colors.bg }]}>Done</Text>
             </TouchableOpacity>
@@ -163,6 +179,27 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+            />
+
+            <Text style={styles.label}>Socials <Text style={styles.optional}>(optional — shown on the lineup)</Text></Text>
+            <TextInput
+              style={[styles.input, styles.socialInput]}
+              placeholder="Instagram handle"
+              placeholderTextColor={colors.textMuted}
+              value={instagramHandle}
+              onChangeText={setInstagramHandle}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={{ height: 8 }} />
+            <TextInput
+              style={[styles.input, styles.socialInput]}
+              placeholder="TikTok handle"
+              placeholderTextColor={colors.textMuted}
+              value={tiktokHandle}
+              onChangeText={setTiktokHandle}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
 
             {error && <Text style={styles.error}>{error}</Text>}
@@ -273,6 +310,9 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       height: 90,
       paddingTop: 12,
     },
+    socialInput: {
+      paddingLeft: 14,
+    },
     error: {
       fontSize: 13,
       color: colors.jam,
@@ -308,6 +348,10 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       color: colors.textSecondary,
       textAlign: 'center',
       lineHeight: 24,
+    },
+    successSocials: {
+      fontSize: 13,
+      textAlign: 'center',
     },
     doneBtn: {
       borderRadius: 10,

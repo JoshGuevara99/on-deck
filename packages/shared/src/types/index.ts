@@ -94,11 +94,27 @@ export interface EventSignup {
   instruments: string[];
   genres: string[];
   note: string | null;
+  instagramHandle: string | null;
+  tiktokHandle: string | null;
   slotOrder: number | null;
   status: SignupStatus;
   createdAt: string;
   updatedAt: string;
   user: Pick<User, 'id' | 'displayName' | 'name'>;
+}
+
+/** Public-facing roster entry — safe to show all users. Note + userId omitted. */
+export interface PublicSignup {
+  id: string;
+  slotOrder: number | null;
+  status: SignupStatus;
+  performerType: PerformerType | null;
+  instruments: string[];
+  genres: string[];
+  instagramHandle: string | null;
+  tiktokHandle: string | null;
+  createdAt: string;
+  user: { displayName: string | null; name: string | null };
 }
 
 // ─── Input shapes ─────────────────────────────────────────────────────────────
@@ -168,6 +184,8 @@ export interface CreateSignupInput {
   instruments?: string[];
   genres?: string[];
   note?: string;
+  instagramHandle?: string;
+  tiktokHandle?: string;
 }
 
 export interface UpdateSignupInput {

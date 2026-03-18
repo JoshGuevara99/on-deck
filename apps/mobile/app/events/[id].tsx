@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import { formatTime } from '../../utils/date';
 import { apiClient } from '../../lib/api';
 import { useAttending } from '../../context/AttendingContext';
 import type { MockEvent } from '../../constants/mock-data';
-import type { CreateSignupInput } from '@on-deck/shared';
+import type { CreateSignupInput, PublicSignup } from '@on-deck/shared';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,6 +39,8 @@ export default function EventDetailScreen() {
   const [signupCount, setSignupCount] = useState(0);
   const [showSignUp, setShowSignUp] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [lineup, setLineup] = useState<PublicSignup[]>([]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const rsvped = event ? attendingIds.has(event.id) : false;
   const isHost = isSignedIn && event?.hostId === userId;
@@ -62,6 +64,25 @@ export default function EventDetailScreen() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadLineup = useCallback(async () => {
+    if (!id) return;
+    try {
+      const token = await getToken();
+      const data = await apiClient.signups.get(id, token ?? undefined);
+      if (Array.isArray(data)) setLineup(data as PublicSignup[]);
+    } catch {
+      // non-blocking — lineup section stays stale
+    }
+  }, [id, getToken]);
+
+  // Start polling lineup once the event is loaded and signups are enabled
+  useEffect(() => {
+    if (!event?.signupsEnabled) return;
+    loadLineup();
+    pollRef.current = setInterval(loadLineup, 15000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [event?.signupsEnabled, loadLineup]);
 
   async function handleRsvp() {
     if (!event) return;
@@ -91,6 +112,7 @@ export default function EventDetailScreen() {
     const token = await getToken();
     const result = await apiClient.signups.create(event.id, input, token!);
     setSignupCount((c) => c + 1);
+    loadLineup();
     return result;
   }
 
@@ -276,6 +298,75 @@ export default function EventDetailScreen() {
               </TouchableOpacity>
             )}
           </View>
+
+          {/* ── Lineup ──────────────────────────────────────────────── */}
+          {event.signupsEnabled && (
+            <View style={styles.lineupSection}>
+              <Text style={[styles.lineupHeading, { color: colors.textMuted }]}>
+                LINEUP · {lineup.filter(s => s.status === 'SIGNED_UP').length} on deck
+              </Text>
+
+              {lineup.length === 0 ? (
+                <Text style={[styles.lineupEmpty, { color: colors.textMuted }]}>
+                  No one's signed up yet — be first.
+                </Text>
+              ) : (
+                lineup.map((slot, i) => {
+                  const name = slot.user.displayName || slot.user.name || 'Performer';
+                  const isMe = (slot as any).userId === userId;
+                  const performed = slot.status === 'PERFORMED';
+                  const detail = [
+                    slot.performerType,
+                    slot.instruments.join(', '),
+                    slot.genres.join(', '),
+                  ].filter(Boolean).join(' · ');
+
+                  return (
+                    <View
+                      key={slot.id}
+                      style={[
+                        styles.lineupRow,
+                        { borderBottomColor: colors.border },
+                        isMe && { backgroundColor: `${accentColor}12` },
+                      ]}
+                    >
+                      <Text style={[styles.lineupNum, { color: performed ? colors.textMuted : accentColor }]}>
+                        {performed ? '✓' : i + 1}
+                      </Text>
+                      <View style={styles.lineupInfo}>
+                        <Text style={[styles.lineupName, { color: performed ? colors.textMuted : colors.text, textDecorationLine: performed ? 'line-through' : 'none' }]}>
+                          {name}{isMe ? ' (you)' : ''}
+                        </Text>
+                        {!!detail && (
+                          <Text style={[styles.lineupDetail, { color: colors.textMuted }]} numberOfLines={1}>
+                            {detail}
+                          </Text>
+                        )}
+                        {(slot.instagramHandle || slot.tiktokHandle) && (
+                          <View style={styles.lineupSocials}>
+                            {slot.instagramHandle && (
+                              <TouchableOpacity onPress={() => Linking.openURL(`https://instagram.com/${slot.instagramHandle}`)}>
+                                <Text style={[styles.lineupHandle, { color: '#E1306C' }]}>
+                                  @{slot.instagramHandle}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                            {slot.tiktokHandle && (
+                              <TouchableOpacity onPress={() => Linking.openURL(`https://tiktok.com/@${slot.tiktokHandle}`)}>
+                                <Text style={[styles.lineupHandle, { color: colors.textSecondary }]}>
+                                  @{slot.tiktokHandle} TikTok
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -452,5 +543,40 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
     },
     editBtnText: { fontSize: 15, fontWeight: '600' },
+
+    lineupSection: {
+      marginTop: 8,
+      paddingHorizontal: 20,
+      paddingBottom: 32,
+    },
+    lineupHeading: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      marginBottom: 12,
+    },
+    lineupEmpty: {
+      fontSize: 14,
+      fontStyle: 'italic',
+    },
+    lineupRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    lineupNum: {
+      fontSize: 15,
+      fontWeight: '800',
+      width: 22,
+      textAlign: 'center',
+      marginTop: 1,
+    },
+    lineupInfo: { flex: 1, gap: 2 },
+    lineupName: { fontSize: 15, fontWeight: '700' },
+    lineupDetail: { fontSize: 12 },
+    lineupSocials: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+    lineupHandle: { fontSize: 12, fontWeight: '600' },
   });
 }
