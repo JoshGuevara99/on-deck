@@ -2,11 +2,11 @@ import { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Switch,
   TextInput,
   useWindowDimensions,
   StatusBar,
@@ -73,6 +73,7 @@ export default function ProfileScreen() {
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [performerType, setPerformerType] = useState<PerformerType | null>(null);
   const [instruments, setInstruments] = useState('');
   const [genres, setGenres] = useState('');
@@ -101,6 +102,7 @@ export default function ProfileScreen() {
         setMySignups(signupsData.map((s) => ({ event: s.event, status: s.status })));
         setDisplayName(profileData.displayName ?? '');
         setBio(profileData.bio ?? '');
+        setAvatarUrl(profileData.avatarUrl ?? '');
         setPerformerType(profileData.performerType);
         setInstruments((profileData.instruments ?? []).join(', '));
         setGenres((profileData.genres ?? []).join(', '));
@@ -128,6 +130,7 @@ export default function ProfileScreen() {
       const updated = await apiClient.users.update(token, {
         displayName: displayName.trim() || undefined,
         bio: bio.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || null,
         performerType: performerType,
         instruments: instruments.split(',').map((s) => s.trim()).filter(Boolean),
         genres: genres.split(',').map((s) => s.trim()).filter(Boolean),
@@ -155,9 +158,13 @@ export default function ProfileScreen() {
 
         {/* ── Auth card ──────────────────────────────── */}
         <View style={styles.authCard}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={34} color={colors.textMuted} />
-          </View>
+          {profile?.avatarUrl ? (
+            <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={34} color={colors.textMuted} />
+            </View>
+          )}
           {isSignedIn ? (
             <>
               <Text style={styles.authTitle}>
@@ -224,6 +231,18 @@ export default function ProfileScreen() {
                   onChangeText={setDisplayName}
                   placeholder="How you appear to hosts"
                   placeholderTextColor={colors.textMuted}
+                />
+
+                <FieldLabel text="Photo URL" colors={colors} />
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                  value={avatarUrl}
+                  onChangeText={setAvatarUrl}
+                  placeholder="https://..."
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
                 />
 
                 <FieldLabel text="I perform as" colors={colors} />
@@ -537,6 +556,12 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
+      marginBottom: 4,
+    },
+    avatarImg: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
       marginBottom: 4,
     },
     authTitle: {

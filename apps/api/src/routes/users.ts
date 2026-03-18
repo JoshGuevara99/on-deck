@@ -14,6 +14,7 @@ const SyncBodySchema = z.object({
 const UpdateUserSchema = z.object({
   displayName: z.string().max(60).optional(),
   bio: z.string().max(280).optional(),
+  avatarUrl: z.string().url().nullable().optional(),
   performerType: z.enum(['MUSICIAN', 'COMEDIAN', 'POET', 'STORYTELLER', 'OTHER']).nullable().optional(),
   instruments: z.array(z.string()).optional(),
   genres: z.array(z.string()).optional(),
@@ -60,6 +61,7 @@ usersRouter.patch('/me', requireAuth, async (req, res, next) => {
       data: {
         ...(input.displayName !== undefined && { displayName: input.displayName }),
         ...(input.bio !== undefined && { bio: input.bio }),
+        ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
         ...(input.performerType !== undefined && { performerType: input.performerType }),
         ...(input.instruments !== undefined && { instruments: input.instruments }),
         ...(input.genres !== undefined && { genres: input.genres }),
@@ -164,6 +166,70 @@ usersRouter.get('/me/attending', requireAuth, async (req, res, next) => {
       const { _count, ...event } = a.event;
       return {
         ...a,
+        event: { ...event, signupCount: _count.signups, attendeeCount: _count.attendees },
+      };
+    }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Public routes — must come AFTER all /me/* routes ─────────────────────────
+
+/** GET /users/:id — public profile (no auth required) */
+usersRouter.get('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params as { id: string };
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        displayName: true,
+        name: true,
+        bio: true,
+        avatarUrl: true,
+        performerType: true,
+        instruments: true,
+        genres: true,
+        performanceCount: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** GET /users/:id/signups — public performance history (PERFORMED only) */
+usersRouter.get('/:id/signups', async (req, res, next) => {
+  try {
+    const { id } = req.params as { id: string };
+
+    const signups = await prisma.eventSignup.findMany({
+      where: { userId: id, status: 'PERFORMED' },
+      include: {
+        event: {
+          include: {
+            venue: true,
+            _count: { select: { signups: true, attendees: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    res.json(signups.map((s) => {
+      const { _count, ...event } = s.event;
+      return {
+        id: s.id,
+        performerType: s.performerType,
+        genres: s.genres,
+        createdAt: s.createdAt,
         event: { ...event, signupCount: _count.signups, attendeeCount: _count.attendees },
       };
     }));

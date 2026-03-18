@@ -26,6 +26,7 @@ const DUMMY_USERS = [
     genres: ['jazz', 'blues'],
     performanceCount: 12,
     instagramHandle: 'marcusbell_music',
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_01',
   },
   {
     id: 'dummy_user_02',
@@ -38,6 +39,7 @@ const DUMMY_USERS = [
     genres: ['observational', 'self-deprecating'],
     performanceCount: 8,
     instagramHandle: null,
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_02',
   },
   {
     id: 'dummy_user_03',
@@ -50,6 +52,7 @@ const DUMMY_USERS = [
     genres: ['spoken word', 'political'],
     performanceCount: 5,
     instagramHandle: 'djokafor_words',
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_03',
   },
   {
     id: 'dummy_user_04',
@@ -62,6 +65,7 @@ const DUMMY_USERS = [
     genres: ['folk', 'soul'],
     performanceCount: 21,
     instagramHandle: 'lenarussomusic',
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_04',
   },
   {
     id: 'dummy_user_05',
@@ -74,6 +78,7 @@ const DUMMY_USERS = [
     genres: ['funk', 'hip-hop', 'jazz'],
     performanceCount: 34,
     instagramHandle: null,
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_05',
   },
   {
     id: 'dummy_user_06',
@@ -86,6 +91,7 @@ const DUMMY_USERS = [
     genres: ['storytelling', 'dark humor'],
     performanceCount: 3,
     instagramHandle: 'niawashington_',
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_06',
   },
   {
     id: 'dummy_user_07',
@@ -98,6 +104,7 @@ const DUMMY_USERS = [
     genres: ['jazz', 'bossa nova'],
     performanceCount: 17,
     instagramHandle: 'tomhayeskeys',
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_07',
   },
   {
     id: 'dummy_user_08',
@@ -110,6 +117,7 @@ const DUMMY_USERS = [
     genres: ['personal narrative', 'humor'],
     performanceCount: 6,
     instagramHandle: null,
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_08',
   },
   {
     id: 'dummy_user_09',
@@ -122,6 +130,7 @@ const DUMMY_USERS = [
     genres: ['latin jazz', 'salsa', 'funk'],
     performanceCount: 29,
     instagramHandle: 'carlosmendeznyc',
+    avatarUrl: 'https://i.pravatar.cc/400?u=dummy_user_09',
   },
   {
     id: 'dummy_user_10',
@@ -134,6 +143,7 @@ const DUMMY_USERS = [
     genres: ['jazz', 'classical', 'experimental'],
     performanceCount: 9,
     instagramHandle: 'alexjordanplays',
+    avatarUrl: null, // no photo set — tests the fallback
   },
 ];
 
@@ -165,6 +175,7 @@ async function main() {
       update: {
         displayName: u.displayName,
         bio: u.bio,
+        avatarUrl: u.avatarUrl,
         performerType: u.performerType,
         instruments: u.instruments,
         genres: u.genres,
@@ -176,6 +187,7 @@ async function main() {
         name: u.name,
         displayName: u.displayName,
         bio: u.bio,
+        avatarUrl: u.avatarUrl,
         performerType: u.performerType,
         instruments: u.instruments,
         genres: u.genres,

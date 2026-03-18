@@ -32,12 +32,27 @@ export interface User {
   name: string | null;
   displayName: string | null;
   bio: string | null;
+  avatarUrl: string | null;
   performerType: PerformerType | null;
   instruments: string[];
   genres: string[];
   performanceCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Public-facing user profile — safe to show any signed-in user. */
+export interface PublicUser {
+  id: string;
+  displayName: string | null;
+  name: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  performerType: PerformerType | null;
+  instruments: string[];
+  genres: string[];
+  performanceCount: number;
+  createdAt: string;
 }
 
 export interface Venue {
@@ -100,10 +115,10 @@ export interface EventSignup {
   status: SignupStatus;
   createdAt: string;
   updatedAt: string;
-  user: Pick<User, 'id' | 'displayName' | 'name'>;
+  user: Pick<User, 'id' | 'displayName' | 'name' | 'avatarUrl'>;
 }
 
-/** Public-facing roster entry — safe to show all users. Note + userId omitted. */
+/** Public-facing roster entry — safe to show all users. Note omitted. */
 export interface PublicSignup {
   id: string;
   slotOrder: number | null;
@@ -114,7 +129,7 @@ export interface PublicSignup {
   instagramHandle: string | null;
   tiktokHandle: string | null;
   createdAt: string;
-  user: { displayName: string | null; name: string | null };
+  user: { id: string; displayName: string | null; name: string | null; avatarUrl: string | null };
 }
 
 // ─── Input shapes ─────────────────────────────────────────────────────────────
@@ -174,6 +189,7 @@ export interface UpdateEventInput {
 export interface UpdateUserInput {
   displayName?: string;
   bio?: string;
+  avatarUrl?: string | null;
   performerType?: PerformerType | null;
   instruments?: string[];
   genres?: string[];

@@ -28,7 +28,7 @@ import type { CreateSignupInput, PublicSignup } from '@on-deck/shared';
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { colors, theme } = useTheme();
+  const { colors } = useTheme();
   const { isSignedIn, getToken, userId } = useAuth();
   const { attendingIds, addAttending, removeAttending } = useAttending();
   const styles = makeStyles(colors);
@@ -138,7 +138,7 @@ export default function EventDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       <ScrollView showsVerticalScrollIndicator={false} bounces>
         {/* Hero image */}
@@ -313,13 +313,23 @@ export default function EventDetailScreen() {
               ) : (
                 lineup.map((slot, i) => {
                   const name = slot.user.displayName || slot.user.name || 'Performer';
-                  const isMe = (slot as any).userId === userId;
+                  const isMe = slot.user.id === userId;
                   const performed = slot.status === 'PERFORMED';
                   const detail = [
                     slot.performerType,
                     slot.instruments.join(', '),
                     slot.genres.join(', '),
                   ].filter(Boolean).join(' · ');
+
+                  const avatarEl = slot.user.avatarUrl ? (
+                    <Image source={{ uri: slot.user.avatarUrl }} style={styles.lineupAvatar} />
+                  ) : (
+                    <View style={[styles.lineupAvatar, styles.lineupAvatarFallback, { backgroundColor: colors.surfaceHigh, borderColor: colors.border }]}>
+                      <Text style={[styles.lineupAvatarInitials, { color: colors.textSecondary }]}>
+                        {name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+                      </Text>
+                    </View>
+                  );
 
                   return (
                     <View
@@ -333,10 +343,19 @@ export default function EventDetailScreen() {
                       <Text style={[styles.lineupNum, { color: performed ? colors.textMuted : accentColor }]}>
                         {performed ? '✓' : i + 1}
                       </Text>
+                      <TouchableOpacity
+                        onPress={() => router.push(`/users/${slot.user.id}` as any)}
+                        activeOpacity={0.75}
+                        style={{ opacity: performed ? 0.55 : 1 }}
+                      >
+                        {avatarEl}
+                      </TouchableOpacity>
                       <View style={styles.lineupInfo}>
-                        <Text style={[styles.lineupName, { color: performed ? colors.textMuted : colors.text, textDecorationLine: performed ? 'line-through' : 'none' }]}>
-                          {name}{isMe ? ' (you)' : ''}
-                        </Text>
+                        <TouchableOpacity onPress={() => router.push(`/users/${slot.user.id}` as any)} activeOpacity={0.75}>
+                          <Text style={[styles.lineupName, { color: performed ? colors.textMuted : colors.text, textDecorationLine: performed ? 'line-through' : 'none' }]}>
+                            {name}{isMe ? ' (you)' : ''}
+                          </Text>
+                        </TouchableOpacity>
                         {!!detail && (
                           <Text style={[styles.lineupDetail, { color: colors.textMuted }]} numberOfLines={1}>
                             {detail}
@@ -578,5 +597,19 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     lineupDetail: { fontSize: 12 },
     lineupSocials: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
     lineupHandle: { fontSize: 12, fontWeight: '600' },
+    lineupAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+    },
+    lineupAvatarFallback: {
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    lineupAvatarInitials: {
+      fontSize: 13,
+      fontWeight: '800',
+    },
   });
 }
