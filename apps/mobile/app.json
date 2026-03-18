@@ -21,7 +21,16 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": ["expo-router", "expo-dev-client"],
+    "plugins": [
+      "expo-router",
+      "expo-dev-client",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "On Deck uses your location to show nearby events."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     }
