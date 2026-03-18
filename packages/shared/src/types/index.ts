@@ -33,6 +33,8 @@ export interface User {
   displayName: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  instagramHandle: string | null;
+  tiktokHandle: string | null;
   performerType: PerformerType | null;
   instruments: string[];
   genres: string[];
@@ -48,6 +50,8 @@ export interface PublicUser {
   name: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  instagramHandle: string | null;
+  tiktokHandle: string | null;
   performerType: PerformerType | null;
   instruments: string[];
   genres: string[];
@@ -190,6 +194,8 @@ export interface UpdateUserInput {
   displayName?: string;
   bio?: string;
   avatarUrl?: string | null;
+  instagramHandle?: string | null;
+  tiktokHandle?: string | null;
   performerType?: PerformerType | null;
   instruments?: string[];
   genres?: string[];

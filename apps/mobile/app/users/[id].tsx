@@ -9,12 +9,11 @@ import {
   SafeAreaView,
   ActivityIndicator,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { EventTypeBadge } from '../../components/EventTypeBadge';
-import { formatTime } from '../../utils/date';
 import { apiClient } from '../../lib/api';
 import type { PublicUser } from '@on-deck/shared';
 import type { MockEvent } from '../../constants/mock-data';
@@ -141,6 +140,32 @@ export default function PublicProfileScreen() {
           {user.bio ? (
             <Text style={[styles.bio, { color: colors.textSecondary }]}>{user.bio}</Text>
           ) : null}
+
+          {/* Social links */}
+          {(user.instagramHandle || user.tiktokHandle) && (
+            <View style={styles.socialsRow}>
+              {user.instagramHandle && (
+                <TouchableOpacity
+                  style={[styles.socialBtn, { backgroundColor: '#E1306C18', borderColor: '#E1306C40' }]}
+                  onPress={() => Linking.openURL(`https://instagram.com/${user.instagramHandle}`)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="logo-instagram" size={16} color="#E1306C" />
+                  <Text style={[styles.socialBtnText, { color: '#E1306C' }]}>@{user.instagramHandle}</Text>
+                </TouchableOpacity>
+              )}
+              {user.tiktokHandle && (
+                <TouchableOpacity
+                  style={[styles.socialBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => Linking.openURL(`https://tiktok.com/@${user.tiktokHandle}`)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="musical-note-outline" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.socialBtnText, { color: colors.textSecondary }]}>@{user.tiktokHandle}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {/* Instruments */}
           {user.instruments.length > 0 && (
@@ -304,6 +329,24 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       fontSize: 15,
       lineHeight: 23,
       textAlign: 'center',
+    },
+    socialsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    socialBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    socialBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
     },
     tagSection: { gap: 10 },
     tagLabel: {
