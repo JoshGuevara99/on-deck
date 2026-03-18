@@ -33,7 +33,7 @@ const PERFORMER_TYPES: { value: PerformerType; label: string }[] = [
 ];
 
 export default function ProfileScreen() {
-  const { colors, theme, toggleTheme } = useTheme();
+  const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -144,7 +144,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle="light-content"
         backgroundColor={colors.bg}
       />
       <ScrollView
@@ -484,40 +484,6 @@ export default function ProfileScreen() {
           />
         )}
 
-        {/* ── Settings ───────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <Ionicons name="settings-outline" size={16} color={colors.gold} />
-              <Text style={styles.sectionTitle}>Settings</Text>
-            </View>
-          </View>
-          <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingLeft}>
-                <Ionicons
-                  name={theme === 'dark' ? 'moon' : 'sunny'}
-                  size={18}
-                  color={colors.gold}
-                />
-                <View>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>
-                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-                  </Text>
-                  <Text style={[styles.settingDesc, { color: colors.textMuted }]}>
-                    {theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={theme === 'dark'}
-                onValueChange={toggleTheme}
-                trackColor={{ false: colors.border, true: colors.gold }}
-                thumbColor={colors.surface}
-              />
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -694,14 +660,5 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
     },
     statusText: { fontSize: 11, fontWeight: '700' },
-    settingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: 16,
-    },
-    settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-    settingLabel: { fontSize: 15, fontWeight: '600' },
-    settingDesc: { fontSize: 12, marginTop: 1 },
   });
 }
