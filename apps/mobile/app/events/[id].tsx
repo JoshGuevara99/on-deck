@@ -241,8 +241,7 @@ export default function EventDetailScreen() {
           <View style={styles.statsRow}>
             <Ionicons name="people-outline" size={14} color={colors.textMuted} />
             <Text style={[styles.statsText, { color: colors.textMuted }]}>
-              {attendeeCount} going
-              {event.signupsEnabled && ` · ${signupCount} signed up`}
+              {attendeeCount + signupCount} going
               {event.signupsEnabled && slotsLeft !== null && (isFull ? ' · Full' : ` · ${slotsLeft} slots left`)}
             </Text>
           </View>
