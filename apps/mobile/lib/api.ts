@@ -4,6 +4,7 @@ import type {
   EventFilters,
   EventSignup,
   PublicSignup,
+  PublicUser,
   UpdateUserInput,
   CreateSignupInput,
   UpdateSignupInput,
@@ -209,6 +210,15 @@ export const apiClient = {
     async myAttending(token: string): Promise<Array<{ id: string; event: MockEvent }>> {
       const data = await get<Array<{ id: string; event: ApiEvent }>>('/users/me/attending', undefined, token);
       return data.map((a) => ({ ...a, event: toMockEvent(a.event) }));
+    },
+
+    async getById(userId: string): Promise<PublicUser> {
+      return get<PublicUser>(`/users/${userId}`);
+    },
+
+    async getPerformances(userId: string): Promise<Array<{ id: string; performerType: string | null; genres: string[]; createdAt: string; event: MockEvent }>> {
+      const data = await get<Array<{ id: string; performerType: string | null; genres: string[]; createdAt: string; event: ApiEvent }>>(`/users/${userId}/signups`);
+      return data.map((s) => ({ ...s, event: toMockEvent(s.event) }));
     },
   },
 };

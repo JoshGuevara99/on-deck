@@ -2,16 +2,17 @@ import { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Switch,
   TextInput,
   useWindowDimensions,
   StatusBar,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -73,6 +74,9 @@ export default function ProfileScreen() {
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [instagramHandle, setInstagramHandle] = useState('');
+  const [tiktokHandle, setTiktokHandle] = useState('');
   const [performerType, setPerformerType] = useState<PerformerType | null>(null);
   const [instruments, setInstruments] = useState('');
   const [genres, setGenres] = useState('');
@@ -101,6 +105,9 @@ export default function ProfileScreen() {
         setMySignups(signupsData.map((s) => ({ event: s.event, status: s.status })));
         setDisplayName(profileData.displayName ?? '');
         setBio(profileData.bio ?? '');
+        setAvatarUrl(profileData.avatarUrl ?? '');
+        setInstagramHandle(profileData.instagramHandle ?? '');
+        setTiktokHandle(profileData.tiktokHandle ?? '');
         setPerformerType(profileData.performerType);
         setInstruments((profileData.instruments ?? []).join(', '));
         setGenres((profileData.genres ?? []).join(', '));
@@ -128,6 +135,9 @@ export default function ProfileScreen() {
       const updated = await apiClient.users.update(token, {
         displayName: displayName.trim() || undefined,
         bio: bio.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || null,
+        instagramHandle: instagramHandle.trim() || null,
+        tiktokHandle: tiktokHandle.trim() || null,
         performerType: performerType,
         instruments: instruments.split(',').map((s) => s.trim()).filter(Boolean),
         genres: genres.split(',').map((s) => s.trim()).filter(Boolean),
@@ -155,9 +165,13 @@ export default function ProfileScreen() {
 
         {/* ── Auth card ──────────────────────────────── */}
         <View style={styles.authCard}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={34} color={colors.textMuted} />
-          </View>
+          {profile?.avatarUrl ? (
+            <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={34} color={colors.textMuted} />
+            </View>
+          )}
           {isSignedIn ? (
             <>
               <Text style={styles.authTitle}>
@@ -224,6 +238,40 @@ export default function ProfileScreen() {
                   onChangeText={setDisplayName}
                   placeholder="How you appear to hosts"
                   placeholderTextColor={colors.textMuted}
+                />
+
+                <FieldLabel text="Photo URL" colors={colors} />
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                  value={avatarUrl}
+                  onChangeText={setAvatarUrl}
+                  placeholder="https://..."
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+
+                <FieldLabel text="Instagram" colors={colors} />
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                  value={instagramHandle}
+                  onChangeText={setInstagramHandle}
+                  placeholder="handle (without @)"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <FieldLabel text="TikTok" colors={colors} />
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surfaceHigh, borderColor: colors.border, color: colors.text }]}
+                  value={tiktokHandle}
+                  onChangeText={setTiktokHandle}
+                  placeholder="handle (without @)"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
 
                 <FieldLabel text="I perform as" colors={colors} />
@@ -308,6 +356,30 @@ export default function ProfileScreen() {
                 {profile?.bio ? (
                   <Text style={[styles.bioText, { color: colors.textSecondary }]}>{profile.bio}</Text>
                 ) : null}
+                {(profile?.instagramHandle || profile?.tiktokHandle) && (
+                  <View style={styles.socialsRow}>
+                    {profile.instagramHandle && (
+                      <TouchableOpacity
+                        style={[styles.socialChip, { backgroundColor: '#E1306C18', borderColor: '#E1306C40' }]}
+                        onPress={() => Linking.openURL(`https://instagram.com/${profile.instagramHandle}`)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="logo-instagram" size={14} color="#E1306C" />
+                        <Text style={[styles.socialChipText, { color: '#E1306C' }]}>@{profile.instagramHandle}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {profile.tiktokHandle && (
+                      <TouchableOpacity
+                        style={[styles.socialChip, { backgroundColor: colors.surfaceHigh, borderColor: colors.border }]}
+                        onPress={() => Linking.openURL(`https://tiktok.com/@${profile.tiktokHandle}`)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="musical-note-outline" size={14} color={colors.textSecondary} />
+                        <Text style={[styles.socialChipText, { color: colors.textSecondary }]}>@{profile.tiktokHandle}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
                 {profile?.instruments && profile.instruments.length > 0 && (
                   <View style={styles.tagRow}>
                     {profile.instruments.map((i) => (
@@ -539,6 +611,12 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       justifyContent: 'center',
       marginBottom: 4,
     },
+    avatarImg: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
+      marginBottom: 4,
+    },
     authTitle: {
       fontSize: 20,
       fontWeight: '800',
@@ -592,6 +670,17 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       padding: 16,
     },
     bioText: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
+    socialsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+    socialChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 5,
+      paddingHorizontal: 12,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    socialChipText: { fontSize: 12, fontWeight: '600' },
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
     tag: {
       paddingHorizontal: 10,

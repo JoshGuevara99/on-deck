@@ -52,6 +52,9 @@ model User {
   // Performer identity — all optional
   displayName      String?
   bio              String?
+  avatarUrl        String?
+  instagramHandle  String?
+  tiktokHandle     String?
   performerType    PerformerType?
   instruments      String[]       @default([])
   genres           String[]       @default([])

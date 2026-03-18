@@ -33,7 +33,7 @@ const PUBLIC_SIGNUP_SELECT = {
   instagramHandle: true,
   tiktokHandle: true,
   createdAt: true,
-  user: { select: { displayName: true, name: true } },
+  user: { select: { id: true, displayName: true, name: true, avatarUrl: true } },
 } as const;
 
 /** GET /events/:id/signups
@@ -53,7 +53,7 @@ signupsRouter.get('/', async (req, res, next) => {
     if (isHost) {
       const signups = await prisma.eventSignup.findMany({
         where: { eventId },
-        include: { user: { select: { id: true, displayName: true, name: true } } },
+        include: { user: { select: { id: true, displayName: true, name: true, avatarUrl: true } } },
         orderBy: [{ slotOrder: 'asc' }, { createdAt: 'asc' }],
       });
       return res.json(signups);
@@ -103,7 +103,7 @@ signupsRouter.post('/', requireAuth, async (req, res, next) => {
         instagramHandle: input.instagramHandle?.trim() || null,
         tiktokHandle: input.tiktokHandle?.trim() || null,
       },
-      include: { user: { select: { id: true, displayName: true, name: true } } },
+      include: { user: { select: { id: true, displayName: true, name: true, avatarUrl: true } } },
     });
 
     // Return slot position
@@ -154,7 +154,7 @@ signupsRouter.patch('/:signupId', requireAuth, async (req, res, next) => {
         ...(input.slotOrder !== undefined && { slotOrder: input.slotOrder }),
         ...(input.status !== undefined && { status: input.status }),
       },
-      include: { user: { select: { id: true, displayName: true, name: true } } },
+      include: { user: { select: { id: true, displayName: true, name: true, avatarUrl: true } } },
     });
 
     // If marking as PERFORMED, increment the user's performanceCount
