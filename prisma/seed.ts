@@ -341,7 +341,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Monday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -364,7 +363,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Tuesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -387,7 +385,6 @@ async function main() {
         signUpMethod: SignUpMethod.APP,
         isRecurring: true,
         recurringDescription: 'Every Wednesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -409,7 +406,6 @@ async function main() {
         backline: ['PA', 'Guitar Amp', 'Drum Kit'],
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: false,
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -432,7 +428,6 @@ async function main() {
         signUpMethod: SignUpMethod.ONLINE,
         isRecurring: true,
         recurringDescription: 'Every Friday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -455,7 +450,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Saturday',
-        isApproved: true,
       },
     }),
 
@@ -481,7 +475,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Sunday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -504,7 +497,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Tuesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -527,7 +519,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Wednesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -550,7 +541,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Thursday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -573,7 +563,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Friday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -595,7 +584,6 @@ async function main() {
         backline: ['PA', 'Acoustic Guitar', 'Stool'],
         signUpMethod: SignUpMethod.ONLINE,
         isRecurring: false,
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -617,7 +605,6 @@ async function main() {
         backline: ['Guitar Amp', 'Bass Amp', 'Drum Kit', 'PA'],
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: false,
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -640,7 +627,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Tuesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -662,7 +648,6 @@ async function main() {
         backline: ['PA', 'Acoustic Guitar'],
         signUpMethod: SignUpMethod.ONLINE,
         isRecurring: false,
-        isApproved: true,
       },
     }),
 
@@ -688,7 +673,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Wednesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -711,7 +695,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Friday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -734,7 +717,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Sunday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -756,7 +738,6 @@ async function main() {
         backline: ['PA', 'Mic Stand'],
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: false,
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -779,7 +760,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Thursday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -802,7 +782,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Saturday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -824,7 +803,6 @@ async function main() {
         backline: ['PA', 'Wireless Mics'],
         signUpMethod: SignUpMethod.ONLINE,
         isRecurring: false,
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -847,7 +825,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Tuesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -870,7 +847,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Friday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -893,7 +869,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Sunday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -915,7 +890,6 @@ async function main() {
         backline: [],
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: false,
-        isApproved: true,
       },
     }),
 
@@ -941,7 +915,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Tuesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -964,7 +937,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Thursday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -987,7 +959,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Wednesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1010,7 +981,6 @@ async function main() {
         signUpMethod: SignUpMethod.ONLINE,
         isRecurring: true,
         recurringDescription: 'Every Saturday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1033,7 +1003,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Friday',
-        isApproved: true,
       },
     }),
 
@@ -1059,7 +1028,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Monday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1082,7 +1050,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'First Friday of every month',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1105,7 +1072,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Wednesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1127,7 +1093,6 @@ async function main() {
         backline: ['PA', 'Monitors'],
         signUpMethod: SignUpMethod.ONLINE,
         isRecurring: false,
-        isApproved: true,
       },
     }),
 
@@ -1153,7 +1118,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Monday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1176,7 +1140,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Wednesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1199,7 +1162,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Friday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1222,7 +1184,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Thursday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1245,7 +1206,6 @@ async function main() {
         signUpMethod: SignUpMethod.ONLINE,
         isRecurring: true,
         recurringDescription: 'Every Saturday',
-        isApproved: true,
       },
     }),
 
@@ -1271,7 +1231,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Tuesday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1294,7 +1253,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Thursday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1317,7 +1275,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Saturday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1340,7 +1297,6 @@ async function main() {
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: true,
         recurringDescription: 'Every Monday',
-        isApproved: true,
       },
     }),
     prisma.event.upsert({
@@ -1362,7 +1318,6 @@ async function main() {
         backline: [],
         signUpMethod: SignUpMethod.DOOR,
         isRecurring: false,
-        isApproved: true,
       },
     }),
   ]);

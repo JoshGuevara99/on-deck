@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,16 +10,58 @@ import { CityPickerModal } from '../../components/CityPickerModal';
 import PlatformMap from '../../components/PlatformMap';
 import type { VenueMarker } from '../../components/PlatformMap';
 
+type TimeFilter = 'tonight' | 'weekend' | 'week' | 'all';
+
+const TIME_FILTERS: { key: TimeFilter; label: string }[] = [
+  { key: 'tonight', label: 'Tonight' },
+  { key: 'weekend', label: 'This Weekend' },
+  { key: 'week', label: 'This Week' },
+  { key: 'all', label: 'All' },
+];
+
+function getFilterRange(filter: TimeFilter): { start: Date; end: Date } | null {
+  if (filter === 'all') return null;
+  const now = new Date();
+  const start = new Date(now);
+  start.setSeconds(0, 0);
+  const end = new Date(now);
+
+  if (filter === 'tonight') {
+    end.setHours(23, 59, 59, 999);
+  } else if (filter === 'weekend') {
+    const day = now.getDay(); // 0=Sun, 6=Sat
+    // Start: this coming Friday at 00:00 (or today if already Fri/Sat/Sun)
+    const daysToFri = day <= 5 ? 5 - day : 0;
+    start.setDate(now.getDate() + daysToFri);
+    start.setHours(0, 0, 0, 0);
+    // End: Sunday 23:59
+    const daysToSun = day === 0 ? 0 : 7 - day;
+    end.setDate(now.getDate() + daysToSun);
+    end.setHours(23, 59, 59, 999);
+  } else if (filter === 'week') {
+    end.setDate(now.getDate() + 7);
+    end.setHours(23, 59, 59, 999);
+  }
+
+  return { start, end };
+}
+
 export default function MapScreen() {
   const { colors } = useTheme();
   const { events } = useEvents();
-  const { selectedCity, setCity, locationPermission } = useLocation();
+  const { selectedCity, setCity, locationPermission, deviceCoords } = useLocation();
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('tonight');
 
   const venues = useMemo<VenueMarker[]>(() => {
+    const range = getFilterRange(timeFilter);
     const map = new Map<string, VenueMarker>();
     for (const event of events) {
       if (!event.venue.lat || !event.venue.lng) continue;
+      if (range) {
+        const t = event.startsAt.getTime();
+        if (t < range.start.getTime() || t > range.end.getTime()) continue;
+      }
       if (!map.has(event.venue.id)) {
         map.set(event.venue.id, {
           id: event.venue.id,
@@ -32,7 +74,7 @@ export default function MapScreen() {
       map.get(event.venue.id)!.eventTitles.push(event.title);
     }
     return [...map.values()];
-  }, [events]);
+  }, [events, timeFilter]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
@@ -61,7 +103,46 @@ export default function MapScreen() {
         </View>
       </View>
 
-      <PlatformMap venues={venues} selectedCity={selectedCity} locationGranted={locationPermission === true} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}
+      >
+        {TIME_FILTERS.map(({ key, label }) => {
+          const active = timeFilter === key;
+          return (
+            <TouchableOpacity
+              key={key}
+              onPress={() => setTimeFilter(key)}
+              activeOpacity={0.75}
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor: active ? colors.gold : colors.surface,
+                  borderColor: active ? colors.gold : colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  { color: active ? '#000' : colors.textSecondary },
+                ]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <PlatformMap
+        venues={venues}
+        selectedCity={selectedCity}
+        locationGranted={locationPermission === true}
+        deviceCoords={deviceCoords}
+      />
 
       <CityPickerModal
         visible={showCityPicker}
@@ -108,6 +189,27 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  filterRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterPill: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterPillText: {
     fontSize: 12,
     fontWeight: '600',
   },

@@ -14,6 +14,7 @@ interface Props {
   venues: VenueMarker[];
   selectedCity: CityOption | null;
   locationGranted: boolean;
+  deviceCoords: { lat: number; lng: number } | null;
 }
 
 // LeafletMap accesses `window` at import time, so it must never be loaded

@@ -9,11 +9,14 @@ interface Props {
   venues: VenueMarker[];
   selectedCity: CityOption | null;
   locationGranted: boolean;
+  deviceCoords: { lat: number; lng: number } | null;
 }
 
-export default function PlatformMap({ venues, selectedCity, locationGranted }: Props) {
+export default function PlatformMap({ venues, selectedCity, locationGranted, deviceCoords }: Props) {
   const mapRef = useRef<MapView>(null);
-  const center = selectedCity ?? DEFAULT_CITY;
+
+  // Determine the map center: explicit city pick > device GPS > default city
+  const center = selectedCity ?? (deviceCoords ? { lat: deviceCoords.lat, lng: deviceCoords.lng } : DEFAULT_CITY);
 
   useEffect(() => {
     if (center.lat == null || center.lng == null) return;
