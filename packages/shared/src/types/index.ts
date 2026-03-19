@@ -89,7 +89,6 @@ export interface ApiEvent {
   isRecurring: boolean;
   recurringDescription: string | null;
   submittedBy: string | null;
-  isApproved: boolean;
   signupsEnabled: boolean;
   maxSlots: number | null;
   hostId: string | null;

@@ -32,22 +32,3 @@ export async function findOrCreateVenue(input: VenueInput) {
   });
 }
 
-export async function listVenues(city?: string) {
-  return prisma.venue.findMany({
-    where: city ? { city: { equals: city, mode: 'insensitive' } } : undefined,
-    orderBy: { name: 'asc' },
-    include: { _count: { select: { events: true } } },
-  });
-}
-
-export async function getVenue(id: string) {
-  return prisma.venue.findUniqueOrThrow({
-    where: { id },
-    include: {
-      events: {
-        where: { isApproved: true },
-        orderBy: { startsAt: 'asc' },
-      },
-    },
-  });
-}

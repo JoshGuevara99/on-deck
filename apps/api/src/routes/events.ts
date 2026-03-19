@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getAuth } from '@clerk/express';
+import rateLimit from 'express-rate-limit';
 import * as eventsService from '../services/events.service';
 import { requireAuth } from '../middleware/auth';
 
@@ -101,6 +102,18 @@ const ListQuerySchema = z.object({
     .transform((v) => (v ? parseInt(v, 10) : 0)),
 });
 
+// ─── Rate limiting ────────────────────────────────────────────────────────────
+
+/** 10 event submissions per user per hour */
+const createEventLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  keyGenerator: (req) => getAuth(req).userId ?? req.ip ?? 'unknown',
+  message: { error: 'Too many events submitted. Please wait before submitting again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 /** GET /events */
@@ -127,7 +140,7 @@ eventsRouter.get('/:id', async (req, res, next) => {
 });
 
 /** POST /events */
-eventsRouter.post('/', requireAuth, async (req, res, next) => {
+eventsRouter.post('/', requireAuth, createEventLimiter, async (req, res, next) => {
   try {
     const input = CreateEventSchema.parse(req.body);
     const { userId } = getAuth(req);

@@ -109,7 +109,6 @@ model Event {
   isRecurring          Boolean      @default(false)
   recurringDescription String?
   submittedBy          String?      // optional Clerk user ID
-  isApproved           Boolean      @default(true)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 

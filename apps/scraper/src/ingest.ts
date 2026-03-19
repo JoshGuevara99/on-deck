@@ -150,7 +150,6 @@ export async function ingestEvents(
           isRecurring: event.isRecurring,
           recurringDescription: event.recurringDescription ?? null,
           submittedBy: null,
-          isApproved: true,
         },
       });
 

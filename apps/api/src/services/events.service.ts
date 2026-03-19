@@ -22,7 +22,7 @@ function toApiEvent(event: Prisma.EventGetPayload<typeof WITH_VENUE_AND_COUNTS>)
 }
 
 export async function listEvents(filters: EventFilters = {}) {
-  const where: Prisma.EventWhereInput = { isApproved: true };
+  const where: Prisma.EventWhereInput = {};
 
   if (filters.type) {
     const types = filters.type.split(',').map((t) => t.trim()) as Prisma.EnumEventTypeFilter['in'];
