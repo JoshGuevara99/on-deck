@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import type { ScrapedEvent } from './scrape';
+import type { AggregatedEvent } from './aggregators/eventbrite';
 import type { CityTarget } from './cities';
 
 const prisma = new PrismaClient();
@@ -94,8 +95,22 @@ export async function wasRecentlyScraped(city: string, state: string): Promise<b
   return run !== null;
 }
 
-async function recordRun(city: string, state: string, inserted: number, skipped: number) {
-  await prisma.scraperRun.create({ data: { city, state, inserted, skipped } });
+async function recordRun(city: string, state: string, source: string, inserted: number, skipped: number) {
+  await prisma.scraperRun.create({ data: { city, state, source, inserted, skipped } });
+}
+
+/** Returns true if this city + source was successfully run within the cooldown window. */
+export async function wasRecentlyAggregated(city: string, state: string, source: string): Promise<boolean> {
+  const since = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000);
+  const run = await prisma.scraperRun.findFirst({
+    where: {
+      city: { equals: city, mode: 'insensitive' },
+      state: { equals: state, mode: 'insensitive' },
+      source,
+      ranAt: { gte: since },
+    },
+  });
+  return run !== null;
 }
 
 // ─── Public ───────────────────────────────────────────────────────────────────
@@ -150,6 +165,7 @@ export async function ingestEvents(
           isRecurring: event.isRecurring,
           recurringDescription: event.recurringDescription ?? null,
           submittedBy: null,
+          source: 'MANUAL',
         },
       });
 
@@ -161,7 +177,72 @@ export async function ingestEvents(
     }
   }
 
-  await recordRun(target.city, target.state, inserted, skipped);
+  await recordRun(target.city, target.state, 'claude', inserted, skipped);
+  return { inserted, skipped };
+}
+
+export async function ingestAggregatedEvents(
+  events: AggregatedEvent[],
+  target: CityTarget,
+  source: string,
+): Promise<IngestResult> {
+  let inserted = 0;
+  let skipped = 0;
+  const now = Date.now();
+
+  for (const event of events) {
+    try {
+      const startsAt = new Date(event.startsAt);
+
+      if (startsAt.getTime() < now) {
+        console.log(`  [skip] Past event: "${event.title}"`);
+        skipped++;
+        continue;
+      }
+
+      // Primary dedup: externalId + source (fast, index-backed)
+      const existing = await prisma.event.findUnique({
+        where: { source_externalId: { source: event.source, externalId: event.externalId } },
+      });
+      if (existing) {
+        console.log(`  [skip] Already ingested: "${event.title}"`);
+        skipped++;
+        continue;
+      }
+
+      const venue = await upsertVenue(event.venue);
+
+      await prisma.event.create({
+        data: {
+          venueId: venue.id,
+          city: event.venue.city,
+          state: event.venue.state,
+          title: event.title,
+          description: event.description ?? null,
+          startsAt,
+          endsAt: event.endsAt ? new Date(event.endsAt) : null,
+          type: event.type,
+          genres: event.genres,
+          coverCharge: event.coverCharge,
+          slotDuration: null,
+          backline: event.backline,
+          signUpMethod: event.signUpMethod,
+          isRecurring: event.isRecurring,
+          submittedBy: null,
+          source: event.source,
+          externalId: event.externalId,
+        },
+      });
+
+      console.log(`  [insert] "${event.title}" @ ${venue.name}`);
+      inserted++;
+    } catch (err) {
+      console.error(`  [error] Failed to ingest "${event.title}":`, err);
+      skipped++;
+    }
+  }
+
+  await recordRun(target.city, target.state, source, inserted, skipped);
   return { inserted, skipped };
 }
 

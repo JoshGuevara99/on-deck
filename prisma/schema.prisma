@@ -25,6 +25,11 @@ enum SignUpMethod {
   APP
 }
 
+enum EventSource {
+  MANUAL      // user-submitted or seeded
+  EVENTBRITE  // ingested from Eventbrite API
+}
+
 enum PerformerType {
   MUSICIAN
   COMEDIAN
@@ -84,11 +89,12 @@ model ScraperRun {
   id       String   @id @default(cuid())
   city     String
   state    String
+  source   String   @default("claude") // "claude" | "eventbrite"
   ranAt    DateTime @default(now())
   inserted Int
   skipped  Int
 
-  @@index([city, state, ranAt])
+  @@index([city, state, source, ranAt])
 }
 
 model Event {
@@ -109,6 +115,8 @@ model Event {
   isRecurring          Boolean      @default(false)
   recurringDescription String?
   submittedBy          String?      // optional Clerk user ID
+  source               EventSource  @default(MANUAL)
+  externalId           String?      // external API event ID (Eventbrite, etc.)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
@@ -128,6 +136,8 @@ model Event {
   host      User?           @relation("HostedEvents", fields: [hostId], references: [id])
   signups   EventSignup[]
   attendees EventAttendee[]
+
+  @@unique([source, externalId])
 }
 
 model EventSignup {

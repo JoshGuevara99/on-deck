@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "scrape": "cd ../.. && tsx apps/scraper/src/index.ts",
+    "scrape": "cd ../.. && tsx apps/scraper/src/index.ts --source claude",
+    "aggregate": "cd ../.. && tsx apps/scraper/src/index.ts --source eventbrite",
+    "aggregate:all": "cd ../.. && tsx apps/scraper/src/index.ts --source all",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
