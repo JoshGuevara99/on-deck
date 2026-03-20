@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -131,6 +131,16 @@ export function EventCard({ event }: Props) {
                   : 'Be first'}
               </Text>
             </View>
+            {event.sourceUrl && (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); Linking.openURL(event.sourceUrl!); }}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Text style={[styles.footerChipText, { color: colors.textMuted, textDecorationLine: 'underline' }]}>
+                  {new URL(event.sourceUrl).hostname.replace(/^www\./, '')}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 

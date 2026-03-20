@@ -34,6 +34,7 @@ export const ScrapedEventSchema = z.object({
   signUpMethod: SignUpMethodEnum.default('DOOR'),
   isRecurring: z.boolean().default(false),
   recurringDescription: z.string().optional(),
+  sourceUrl: z.string().optional(),
   venue: z.object({
     name: z.string(),
     address: z.string(),

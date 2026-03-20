@@ -26,8 +26,9 @@ enum SignUpMethod {
 }
 
 enum EventSource {
-  MANUAL      // user-submitted or seeded
-  EVENTBRITE  // ingested from Eventbrite API
+  MANUAL         // user-submitted or seeded
+  EVENTBRITE     // ingested from Eventbrite API
+  VENUE_SCRAPER  // scraped from a venue website via Playwright + Gemini
 }
 
 enum PerformerType {
@@ -117,6 +118,7 @@ model Event {
   submittedBy          String?      // optional Clerk user ID
   source               EventSource  @default(MANUAL)
   externalId           String?      // external API event ID (Eventbrite, etc.)
+  sourceUrl            String?      // URL of the page this event was scraped from
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 

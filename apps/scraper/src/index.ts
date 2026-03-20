@@ -10,6 +10,8 @@ import {
 } from './ingest';
 import { SCRAPE_CITIES, type CityTarget } from './cities';
 import { scrapeEventbrite } from './aggregators/eventbrite';
+import { scrapeVenueList } from './aggregators/venue-list';
+import { NYC_VENUES } from './venues-nyc';
 
 // ─── CLI flags ────────────────────────────────────────────────────────────────
 // Usage:
@@ -18,7 +20,7 @@ import { scrapeEventbrite } from './aggregators/eventbrite';
 //   pnpm --filter @on-deck/scraper scrape -- --city "Austin"
 //   pnpm --filter @on-deck/scraper aggregate -- --city "New York"
 
-type Source = 'claude' | 'eventbrite' | 'all';
+type Source = 'claude' | 'eventbrite' | 'venue-list' | 'all';
 
 function getArgs(): { cities: CityTarget[]; source: Source } {
   const args = process.argv.slice(2);
@@ -123,6 +125,36 @@ async function runEventbrite(targets: CityTarget[]) {
   return totals;
 }
 
+async function runVenueList() {
+  if (!process.env.GEMINI_API_KEY) {
+    console.error('Error: GEMINI_API_KEY is not set.');
+    process.exit(1);
+  }
+
+  const NYC_TARGET = { city: 'New York', state: 'NY' };
+  const totals = { inserted: 0, skipped: 0, cooledDown: 0 };
+
+  if (await wasRecentlyAggregated(NYC_TARGET.city, NYC_TARGET.state, 'venue-list')) {
+    console.log(`  [skip] Venue-list scraped within the last 20 hours\n`);
+    totals.cooledDown++;
+    return totals;
+  }
+
+  try {
+    const events = await scrapeVenueList(NYC_VENUES);
+    console.log(`  Found ${events.length} candidate events from venue list`);
+
+    const { inserted, skipped } = await ingestEvents(events, NYC_TARGET, 'venue-list');
+    totals.inserted += inserted;
+    totals.skipped += skipped;
+    console.log(`  → ${inserted} inserted, ${skipped} skipped\n`);
+  } catch (err) {
+    console.error(`  [error] Venue-list scrape failed:`, err, '\n');
+  }
+
+  return totals;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -152,6 +184,13 @@ async function main() {
     totals.inserted += r.inserted;
     totals.skipped += r.skipped;
     totals.cities += r.cities;
+    totals.cooledDown += r.cooledDown;
+  }
+
+  if (source === 'venue-list' || source === 'all') {
+    const r = await runVenueList();
+    totals.inserted += r.inserted;
+    totals.skipped += r.skipped;
     totals.cooledDown += r.cooledDown;
   }
 

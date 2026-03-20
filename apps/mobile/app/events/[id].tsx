@@ -235,6 +235,17 @@ export default function EventDetailScreen() {
                 />
               </TouchableOpacity>
             )}
+            {event.sourceUrl && (
+              <TouchableOpacity onPress={() => Linking.openURL(event.sourceUrl!)}>
+                <DetailRow
+                  icon="link-outline"
+                  label="Found at"
+                  color={accentColor}
+                  value={new URL(event.sourceUrl).hostname.replace(/^www\./, '')}
+                  valueStyle={{ color: accentColor, textDecorationLine: 'underline' }}
+                />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Stats */}

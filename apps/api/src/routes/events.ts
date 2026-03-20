@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getAuth } from '@clerk/express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import * as eventsService from '../services/events.service';
 import { requireAuth } from '../middleware/auth';
 
@@ -108,7 +108,7 @@ const ListQuerySchema = z.object({
 const createEventLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 10,
-  keyGenerator: (req) => getAuth(req).userId ?? req.ip ?? 'unknown',
+  keyGenerator: (req) => getAuth(req).userId ?? ipKeyGenerator(req),
   message: { error: 'Too many events submitted. Please wait before submitting again.' },
   standardHeaders: true,
   legacyHeaders: false,

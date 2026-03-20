@@ -123,6 +123,7 @@ export interface IngestResult {
 export async function ingestEvents(
   events: ScrapedEvent[],
   target: CityTarget,
+  source = 'claude',
 ): Promise<IngestResult> {
   let inserted = 0;
   let skipped = 0;
@@ -164,8 +165,9 @@ export async function ingestEvents(
           signUpMethod: event.signUpMethod,
           isRecurring: event.isRecurring,
           recurringDescription: event.recurringDescription ?? null,
+          sourceUrl: event.sourceUrl ?? null,
           submittedBy: null,
-          source: 'MANUAL',
+          source: event.sourceUrl ? 'VENUE_SCRAPER' : 'MANUAL',
         },
       });
 
@@ -177,7 +179,7 @@ export async function ingestEvents(
     }
   }
 
-  await recordRun(target.city, target.state, 'claude', inserted, skipped);
+  await recordRun(target.city, target.state, source, inserted, skipped);
   return { inserted, skipped };
 }
 
