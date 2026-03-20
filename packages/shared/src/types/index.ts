@@ -92,6 +92,7 @@ export interface ApiEvent {
   signupsEnabled: boolean;
   maxSlots: number | null;
   hostId: string | null;
+  sourceUrl: string | null;
   coverImageUrl: string | null;
   coverImageThumb: string | null;
   coverImagePhotographer: string | null;

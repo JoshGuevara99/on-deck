@@ -102,6 +102,7 @@ function toMockEvent(e: ApiEvent): MockEvent {
     signupCount: e.signupCount,
     attendeeCount: e.attendeeCount,
     hostId: e.hostId,
+    sourceUrl: e.sourceUrl ?? undefined,
     coverImageUrl: e.coverImageUrl ?? undefined,
     coverImageThumb: e.coverImageThumb ?? undefined,
     coverImagePhotographer: e.coverImagePhotographer ?? undefined,
