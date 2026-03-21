@@ -20,7 +20,7 @@ import * as cheerio from 'cheerio';
 import { ScrapeStrategy } from '@prisma/client';
 import { chromium, type Browser, type Page } from 'playwright';
 import type { ScrapedEvent } from '../scrape';
-import type { VenueTarget } from '../venues-nyc';
+import type { VenueTarget } from '../venues/index';
 import { prisma } from '../ingest';
 import { toScrapedEvent, isFuture, isWithinLookahead } from '../extract-utils';
 
@@ -176,9 +176,29 @@ async function fetchText(url: string): Promise<string | null> {
  *   4. Tries Squarespace's ?format=ical export on the venue URL
  *   5. Probes common .ics subpaths relative to the base URL
  */
+/**
+ * If the venue URL itself is a Google Calendar embed link, convert it directly
+ * to an iCal feed URL — no page fetch needed.
+ * e.g. https://calendar.google.com/calendar/embed?src=CALENDAR_ID&...
+ *   → https://calendar.google.com/calendar/ical/CALENDAR_ID/public/basic.ics
+ */
+function extractGoogleCalendarIcalUrl(url: string): string | null {
+  const match = url.match(/calendar\.google\.com\/calendar\/(?:u\/\d+\/)?embed\?.*?[?&]src=([^&]+)/);
+  if (!match?.[1]) return null;
+  const calId = decodeURIComponent(match[1]);
+  return `https://calendar.google.com/calendar/ical/${calId}/public/basic.ics`;
+}
+
 async function discoverIcalUrls(ctx: ScrapeContext): Promise<string[]> {
   const base = new URL(ctx.venue.url);
   const candidates: string[] = [];
+
+  // If the venue URL is itself a Google Calendar embed, convert directly
+  const directGcal = extractGoogleCalendarIcalUrl(ctx.venue.url);
+  if (directGcal) {
+    candidates.push(directGcal);
+    return candidates; // no page fetch needed
+  }
 
   // Fetch the venue page (store in ctx for Tier 1 to reuse)
   const html = await fetchText(ctx.venue.url);

@@ -11,7 +11,7 @@ import {
 import { SCRAPE_CITIES, type CityTarget } from './cities';
 import { scrapeEventbrite } from './aggregators/eventbrite';
 import { scrapeVenueList } from './aggregators/venue-list';
-import { NYC_VENUES } from './venues-nyc';
+import { NYC_VENUES } from './venues/index';
 
 // ─── CLI flags ────────────────────────────────────────────────────────────────
 // Usage:

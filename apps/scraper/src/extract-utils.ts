@@ -5,7 +5,7 @@
  */
 
 import { ScrapedEventSchema, type ScrapedEvent } from './scrape';
-import type { VenueTarget } from './venues-nyc';
+import type { VenueTarget } from './venues/index';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
