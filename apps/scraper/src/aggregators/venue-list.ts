@@ -348,13 +348,104 @@ async function tierIcal(ctx: ScrapeContext, _page: Page | null): Promise<TierRes
   return { events: [], tier: ScrapeStrategy.ICAL, confidence: 5 };
 }
 
+// ─── Tier 1: Static HTML ──────────────────────────────────────────────────────
+
+/** Extract events from JSON-LD <script type="application/ld+json"> tags. */
+function extractJsonLd(html: string, venue: VenueTarget): ScrapedEvent[] {
+  const $ = cheerio.load(html);
+  const events: ScrapedEvent[] = [];
+
+  $('script[type="application/ld+json"]').each((_, el) => {
+    let parsed: unknown;
+    try { parsed = JSON.parse($(el).html() ?? ''); } catch { return; }
+
+    const items: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+    for (const item of items) {
+      if (!item || typeof item !== 'object') continue;
+      const obj = item as Record<string, any>;
+      if (obj['@type'] !== 'Event' || !obj.name || !obj.startDate) continue;
+
+      let address: string | undefined;
+      if (obj.location?.address) {
+        address = typeof obj.location.address === 'string'
+          ? obj.location.address
+          : obj.location.address?.streetAddress;
+      }
+
+      const event = toScrapedEvent({
+        title: obj.name,
+        description: obj.description,
+        startsAt: obj.startDate,
+        endsAt: obj.endDate,
+        address,
+        venueName: obj.location?.name,
+      }, venue);
+
+      if (event) events.push(event);
+    }
+  });
+
+  return events;
+}
+
+/** Extract events using CSS selectors for known CMS platforms. */
+function extractBySelectors(html: string, venue: VenueTarget): ScrapedEvent[] {
+  const $ = cheerio.load(html);
+  const events: ScrapedEvent[] = [];
+
+  const tryAdd = (title: string, datetime: string, description?: string) => {
+    if (!title || !datetime) return;
+    const event = toScrapedEvent({ title, description, startsAt: datetime }, venue);
+    if (event) events.push(event);
+  };
+
+  // ── Squarespace ──────────────────────────────────────────────────────────────
+  $('.eventlist-event').each((_, el) => {
+    const title = $(el).find('.eventlist-title').text().trim();
+    const datetime = $(el).find('time[datetime]').attr('datetime') ?? '';
+    const description = $(el).find('.eventlist-description').text().trim();
+    tryAdd(title, datetime, description);
+  });
+  if (events.length) return events;
+
+  // ── WordPress: The Events Calendar plugin ────────────────────────────────────
+  $('.tribe-event, .type-tribe_events').each((_, el) => {
+    const title = $(el).find('h2, h3, .tribe-event-url').first().text().trim();
+    const datetime = $(el).find('time[datetime], abbr[title]').first().attr('datetime')
+      ?? $(el).find('abbr[title]').first().attr('title') ?? '';
+    const description = $(el).find('.tribe-event-description, .tribe-events-schedule').text().trim();
+    tryAdd(title, datetime, description);
+  });
+  if (events.length) return events;
+
+  // ── Generic: any container with a <time datetime="..."> ──────────────────────
+  $('time[datetime], [datetime]').each((_, el) => {
+    const datetime = $(el).attr('datetime') ?? '';
+    const container = $(el).closest('article, li, div[class*="event" i], div[class*="Event"]');
+    if (!container.length) return;
+    const title = container.find('h1,h2,h3,h4,a').first().text().trim();
+    const description = container.find('p').first().text().trim();
+    tryAdd(title, datetime, description);
+  });
+
+  return events;
+}
+
 async function tierStaticHtml(ctx: ScrapeContext, _page: Page | null): Promise<TierResult> {
-  // TODO:
-  //   1. node-fetch (or native fetch) to GET venue.url — store result in ctx.rawHtml
-  //   2. Parse with cheerio
-  //   3. Run JSON-LD extraction (script[type="application/ld+json"] → @type Event)
-  //   4. Run CSS selector extraction (Squarespace, Tribe/WP, generic time[datetime])
-  //   5. Run isParticipatory + toScrapedEvent filters
+  // Reuse HTML already fetched by Tier 0, or fetch it now
+  if (!ctx.rawHtml) {
+    ctx.rawHtml = await fetchText(ctx.venue.url);
+  }
+  if (!ctx.rawHtml) return { events: [], tier: ScrapeStrategy.STATIC_HTML, confidence: 5 };
+
+  // Strategy A: JSON-LD (clean, structured)
+  const jsonLdEvents = extractJsonLd(ctx.rawHtml, ctx.venue);
+  if (jsonLdEvents.length) return { events: jsonLdEvents, tier: ScrapeStrategy.STATIC_HTML, confidence: 5 };
+
+  // Strategy B: CSS selectors for known platforms
+  const selectorEvents = extractBySelectors(ctx.rawHtml, ctx.venue);
+  if (selectorEvents.length) return { events: selectorEvents, tier: ScrapeStrategy.STATIC_HTML, confidence: 5 };
+
   return { events: [], tier: ScrapeStrategy.STATIC_HTML, confidence: 5 };
 }
 
