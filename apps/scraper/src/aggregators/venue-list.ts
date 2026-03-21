@@ -170,10 +170,11 @@ async function fetchText(url: string): Promise<string | null> {
 
 /**
  * Discovers .ics feed URLs for a venue:
- *   1. Fetches the venue page and parses <link rel="alternate" type="text/calendar">
- *   2. Probes common .ics subpaths relative to the base URL
- *
- * Stores the fetched HTML in ctx.rawHtml as a side-effect for Tier 1 to reuse.
+ *   1. Fetches the venue page HTML (stored in ctx.rawHtml for Tier 1 to reuse)
+ *   2. Parses <link rel="alternate" type="text/calendar">
+ *   3. Detects Google Calendar iframes and converts to iCal URLs
+ *   4. Tries Squarespace's ?format=ical export on the venue URL
+ *   5. Probes common .ics subpaths relative to the base URL
  */
 async function discoverIcalUrls(ctx: ScrapeContext): Promise<string[]> {
   const base = new URL(ctx.venue.url);
@@ -183,19 +184,36 @@ async function discoverIcalUrls(ctx: ScrapeContext): Promise<string[]> {
   const html = await fetchText(ctx.venue.url);
   if (html) {
     ctx.rawHtml = html;
-
-    // Parse <link rel="alternate" type="text/calendar" href="...">
     const $ = cheerio.load(html);
+
+    // <link rel="alternate" type="text/calendar" href="...">
     $('link[rel="alternate"]').each((_, el) => {
       const type = $(el).attr('type') ?? '';
       const href = $(el).attr('href') ?? '';
       if (type.includes('calendar') && href) {
-        try {
-          candidates.push(new URL(href, base).toString());
-        } catch { /* invalid href — skip */ }
+        try { candidates.push(new URL(href, base).toString()); } catch { /* skip */ }
+      }
+    });
+
+    // Google Calendar embed iframes:
+    // src="https://calendar.google.com/calendar/embed?src=CALENDAR_ID&..."
+    // → convert to: https://calendar.google.com/calendar/ical/CALENDAR_ID/public/basic.ics
+    $('iframe').each((_, el) => {
+      const src = $(el).attr('src') ?? '';
+      const match = src.match(/calendar\.google\.com\/calendar\/embed\?.*?[?&]src=([^&]+)/);
+      if (match?.[1]) {
+        const calId = decodeURIComponent(match[1]);
+        candidates.push(`https://calendar.google.com/calendar/ical/${calId}/public/basic.ics`);
       }
     });
   }
+
+  // Squarespace exports iCal via ?format=ical on the events page URL
+  try {
+    const squarespaceIcal = new URL(ctx.venue.url);
+    squarespaceIcal.searchParams.set('format', 'ical');
+    candidates.push(squarespaceIcal.toString());
+  } catch { /* skip */ }
 
   // Probe common .ics paths
   for (const path of ICAL_PROBE_PATHS) {
@@ -221,27 +239,67 @@ function parseIcalFeed(icsText: string, venue: VenueTarget): ScrapedEvent[] {
     return [];
   }
 
+  const now = new Date();
+  const maxDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
   const events: ScrapedEvent[] = [];
 
   for (const component of Object.values(parsed)) {
     if (!component || component.type !== 'VEVENT') continue;
     const vevent = component as ical.VEvent;
 
-    const startsAt = vevent.start instanceof Date ? vevent.start : new Date(String(vevent.start));
-    if (!isFuture(startsAt) || !isWithinLookahead(startsAt)) continue;
+    // Skip all-day events — they have no meaningful time to display
+    if ((vevent as any).datetype === 'date') continue;
 
-    const event = toScrapedEvent(
-      {
-        title: icalStr(vevent.summary),
-        description: icalStr(vevent.description) || undefined,
-        startsAt: startsAt.toISOString(),
-        endsAt: vevent.end instanceof Date ? vevent.end.toISOString() : undefined,
-        address: icalStr(vevent.location) || undefined,
-      },
-      venue,
-    );
+    const title = icalStr(vevent.summary);
+    const description = icalStr(vevent.description) || undefined;
+    const address = icalStr(vevent.location) || undefined;
 
-    if (event) events.push(event);
+    // Compute event duration so recurring occurrences get the right end time
+    const durationMs =
+      vevent.end instanceof Date && vevent.start instanceof Date
+        ? vevent.end.getTime() - vevent.start.getTime()
+        : 0;
+
+    if (vevent.rrule) {
+      // Recurring event — expand all occurrences within the lookahead window
+      const occurrences: Date[] = vevent.rrule.between(now, maxDate, true /* inclusive */);
+      for (const occurrence of occurrences) {
+        const endsAt = durationMs > 0
+          ? new Date(occurrence.getTime() + durationMs).toISOString()
+          : undefined;
+        const event = toScrapedEvent(
+          {
+            title,
+            description,
+            startsAt: occurrence.toISOString(),
+            endsAt,
+            address,
+            isRecurring: true,
+            recurringDescription: (() => {
+              try { return (vevent.rrule as any).toText?.() ?? undefined; } catch { return undefined; }
+            })(),
+          },
+          venue,
+        );
+        if (event) events.push(event);
+      }
+    } else {
+      // Single occurrence
+      const startsAt = vevent.start instanceof Date ? vevent.start : new Date(String(vevent.start));
+      if (!isFuture(startsAt) || !isWithinLookahead(startsAt)) continue;
+
+      const event = toScrapedEvent(
+        {
+          title,
+          description,
+          startsAt: startsAt.toISOString(),
+          endsAt: vevent.end instanceof Date ? vevent.end.toISOString() : undefined,
+          address,
+        },
+        venue,
+      );
+      if (event) events.push(event);
+    }
   }
 
   return events;
@@ -250,11 +308,17 @@ function parseIcalFeed(icsText: string, venue: VenueTarget): ScrapedEvent[] {
 async function tierIcal(ctx: ScrapeContext, _page: Page | null): Promise<TierResult> {
   const candidates = await discoverIcalUrls(ctx);
 
-  for (const url of candidates) {
-    const text = await fetchText(url);
-    if (!text?.includes('BEGIN:VCALENDAR')) continue;
+  // Probe all candidates in parallel — each is an independent HTTP request
+  const results = await Promise.all(
+    candidates.map(async (url) => {
+      const text = await fetchText(url);
+      if (!text?.includes('BEGIN:VCALENDAR')) return [];
+      return parseIcalFeed(text, ctx.venue);
+    }),
+  );
 
-    const events = parseIcalFeed(text, ctx.venue);
+  // Return the first candidate that yielded events
+  for (const events of results) {
     if (events.length > 0) {
       return { events, tier: ScrapeStrategy.ICAL, confidence: 5 };
     }
