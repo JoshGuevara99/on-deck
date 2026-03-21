@@ -282,24 +282,20 @@ function parseIcalFeed(icsText: string, venue: VenueTarget): ScrapedEvent[] {
         : 0;
 
     if (vevent.rrule) {
-      // Recurring event — expand all occurrences within the lookahead window
-      const occurrences: Date[] = vevent.rrule.between(now, maxDate, true /* inclusive */);
-      for (const occurrence of occurrences) {
+      // Recurring event — store only the next upcoming occurrence.
+      // isRecurring + recurringDescription tells the user it repeats regularly.
+      // When this occurrence ages off, the next scraper run inserts the new next one.
+      // .after() is not implemented in node-ical's rrule wrapper — use between() and take the first result
+      const next: Date | undefined = vevent.rrule.between(now, maxDate, true)[0];
+      if (next && isWithinLookahead(next)) {
         const endsAt = durationMs > 0
-          ? new Date(occurrence.getTime() + durationMs).toISOString()
+          ? new Date(next.getTime() + durationMs).toISOString()
           : undefined;
+        const recurringDescription = (() => {
+          try { return (vevent.rrule as any).toText?.() ?? undefined; } catch { return undefined; }
+        })();
         const event = toScrapedEvent(
-          {
-            title,
-            description,
-            startsAt: occurrence.toISOString(),
-            endsAt,
-            address,
-            isRecurring: true,
-            recurringDescription: (() => {
-              try { return (vevent.rrule as any).toText?.() ?? undefined; } catch { return undefined; }
-            })(),
-          },
+          { title, description, startsAt: next.toISOString(), endsAt, address, isRecurring: true, recurringDescription },
           venue,
         );
         if (event) events.push(event);
