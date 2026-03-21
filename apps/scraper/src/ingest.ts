@@ -7,6 +7,51 @@ const prisma = new PrismaClient();
 
 export { prisma };
 
+// ─── Unsplash ─────────────────────────────────────────────────────────────────
+
+const TYPE_QUERIES: Record<string, string> = {
+  OPEN_MIC:     'open mic live performance stage microphone',
+  JAM_SESSION:  'jazz jam session musicians improvisation',
+  COMEDY_NIGHT: 'comedy stand up performance stage',
+  POETRY_SLAM:  'poetry spoken word performance stage',
+  OPEN_STAGE:   'live music performance stage',
+  WORKSHOP:     'music workshop creative rehearsal',
+  OPEN_STUDIO:  'art studio creative workshop',
+};
+
+// Cache per scraper run — one Unsplash call per unique query
+const unsplashCache = new Map<string, any[]>();
+
+async function fetchPhoto(type: string, genres: string[]) {
+  const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+  if (!accessKey) return null;
+
+  const base = TYPE_QUERIES[type] ?? 'live music performance';
+  const query = genres[0] ? `${genres[0]} ${base}` : base;
+
+  if (!unsplashCache.has(query)) {
+    try {
+      const url = new URL('https://api.unsplash.com/search/photos');
+      url.searchParams.set('query', query);
+      url.searchParams.set('per_page', '10');
+      url.searchParams.set('orientation', 'landscape');
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Client-ID ${accessKey}` },
+      });
+      if (!res.ok) { unsplashCache.set(query, []); return null; }
+      const data: any = await res.json();
+      unsplashCache.set(query, data.results ?? []);
+    } catch {
+      unsplashCache.set(query, []);
+      return null;
+    }
+  }
+
+  const results = unsplashCache.get(query)!;
+  if (!results.length) return null;
+  return results[Math.floor(Math.random() * results.length)];
+}
+
 // ─── Venue upsert ─────────────────────────────────────────────────────────────
 
 async function upsertVenue(v: ScrapedEvent['venue']) {
@@ -148,6 +193,8 @@ export async function ingestEvents(
         continue;
       }
 
+      const photo = await fetchPhoto(event.type, event.genres);
+
       await prisma.event.create({
         data: {
           venueId: venue.id,
@@ -168,6 +215,11 @@ export async function ingestEvents(
           sourceUrl: event.sourceUrl ?? null,
           submittedBy: null,
           source: event.sourceUrl ? 'VENUE_SCRAPER' : 'MANUAL',
+          coverImageUrl: photo?.urls.regular ?? null,
+          coverImageThumb: photo?.urls.thumb ?? null,
+          coverImagePhotographer: photo?.user.name ?? null,
+          coverImagePhotographerUrl: photo?.user.links.html ?? null,
+          coverImageAttribution: photo ? `Photo by ${photo.user.name} on Unsplash` : null,
         },
       });
 
@@ -213,6 +265,7 @@ export async function ingestAggregatedEvents(
       }
 
       const venue = await upsertVenue(event.venue);
+      const photo = await fetchPhoto(event.type, event.genres);
 
       await prisma.event.create({
         data: {
@@ -233,6 +286,11 @@ export async function ingestAggregatedEvents(
           submittedBy: null,
           source: event.source,
           externalId: event.externalId,
+          coverImageUrl: photo?.urls.regular ?? null,
+          coverImageThumb: photo?.urls.thumb ?? null,
+          coverImagePhotographer: photo?.user.name ?? null,
+          coverImagePhotographerUrl: photo?.user.links.html ?? null,
+          coverImageAttribution: photo ? `Photo by ${photo.user.name} on Unsplash` : null,
         },
       });
 
