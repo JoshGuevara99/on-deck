@@ -126,11 +126,6 @@ async function runEventbrite(targets: CityTarget[]) {
 }
 
 async function runVenueList() {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error('Error: GEMINI_API_KEY is not set.');
-    process.exit(1);
-  }
-
   const NYC_TARGET = { city: 'New York', state: 'NY' };
   const totals = { inserted: 0, skipped: 0, cooledDown: 0 };
 

@@ -183,7 +183,8 @@ async function fetchText(url: string): Promise<string | null> {
  *   → https://calendar.google.com/calendar/ical/CALENDAR_ID/public/basic.ics
  */
 function extractGoogleCalendarIcalUrl(url: string): string | null {
-  const match = url.match(/calendar\.google\.com\/calendar\/(?:u\/\d+\/)?embed\?.*?[?&]src=([^&]+)/);
+  // Match ?src= (first param) or &src= (subsequent param)
+  const match = url.match(/calendar\.google\.com\/calendar\/(?:u\/\d+\/)?embed\?(?:[^&]*&)*src=([^&]+)/);
   if (!match?.[1]) return null;
   const calId = decodeURIComponent(match[1]);
   return `https://calendar.google.com/calendar/ical/${calId}/public/basic.ics`;
@@ -220,7 +221,7 @@ async function discoverIcalUrls(ctx: ScrapeContext): Promise<string[]> {
     // → convert to: https://calendar.google.com/calendar/ical/CALENDAR_ID/public/basic.ics
     $('iframe').each((_, el) => {
       const src = $(el).attr('src') ?? '';
-      const match = src.match(/calendar\.google\.com\/calendar\/embed\?.*?[?&]src=([^&]+)/);
+      const match = src.match(/calendar\.google\.com\/calendar\/embed\?(?:[^&]*&)*src=([^&]+)/);
       if (match?.[1]) {
         const calId = decodeURIComponent(match[1]);
         candidates.push(`https://calendar.google.com/calendar/ical/${calId}/public/basic.ics`);
