@@ -15,11 +15,14 @@
  */
 
 import { createHash } from 'node:crypto';
+import * as ical from 'node-ical';
+import * as cheerio from 'cheerio';
 import { ScrapeStrategy } from '@prisma/client';
 import { chromium, type Browser, type Page } from 'playwright';
 import type { ScrapedEvent } from '../scrape';
 import type { VenueTarget } from '../venues-nyc';
 import { prisma } from '../ingest';
+import { toScrapedEvent, isFuture, isWithinLookahead } from '../extract-utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -138,12 +141,125 @@ async function saveScrapeState(
 // The context (ctx) should be populated as a side-effect even when no events
 // are found, so downstream tiers can reuse fetched content.
 
-async function tierIcal(_ctx: ScrapeContext, _page: Page | null): Promise<TierResult> {
-  // TODO:
-  //   1. HTTP GET venue.url, parse <link rel="alternate" type="text/calendar">
-  //   2. Also try common paths: /events.ics, /calendar.ics, /feed
-  //   3. Parse the iCal feed with a library (e.g. node-ical)
-  //   4. Filter to participatory events within the 90-day lookahead
+// ─── Tier 0: iCal / RSS ───────────────────────────────────────────────────────
+
+/** Common .ics paths to probe relative to the venue's base URL. */
+const ICAL_PROBE_PATHS = [
+  '/events.ics',
+  '/calendar.ics',
+  '/calendar/events.ics',
+  '/feed/events.ics',
+  '/events/feed.ics',
+  '/wp-admin/admin-ajax.php?action=mec_ical_download', // Modern Events Calendar (WP plugin)
+];
+
+const FETCH_TIMEOUT_MS = 10_000;
+
+async function fetchText(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OnDeckBot/1.0)' },
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Discovers .ics feed URLs for a venue:
+ *   1. Fetches the venue page and parses <link rel="alternate" type="text/calendar">
+ *   2. Probes common .ics subpaths relative to the base URL
+ *
+ * Stores the fetched HTML in ctx.rawHtml as a side-effect for Tier 1 to reuse.
+ */
+async function discoverIcalUrls(ctx: ScrapeContext): Promise<string[]> {
+  const base = new URL(ctx.venue.url);
+  const candidates: string[] = [];
+
+  // Fetch the venue page (store in ctx for Tier 1 to reuse)
+  const html = await fetchText(ctx.venue.url);
+  if (html) {
+    ctx.rawHtml = html;
+
+    // Parse <link rel="alternate" type="text/calendar" href="...">
+    const $ = cheerio.load(html);
+    $('link[rel="alternate"]').each((_, el) => {
+      const type = $(el).attr('type') ?? '';
+      const href = $(el).attr('href') ?? '';
+      if (type.includes('calendar') && href) {
+        try {
+          candidates.push(new URL(href, base).toString());
+        } catch { /* invalid href — skip */ }
+      }
+    });
+  }
+
+  // Probe common .ics paths
+  for (const path of ICAL_PROBE_PATHS) {
+    candidates.push(new URL(path, base).toString());
+  }
+
+  return [...new Set(candidates)];
+}
+
+/** Extracts a plain string from a node-ical ParameterValue (string | { val, params }). */
+function icalStr(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && 'val' in value) return String((value as any).val);
+  return '';
+}
+
+/** Parses a fetched .ics string and maps valid entries to ScrapedEvent[]. */
+function parseIcalFeed(icsText: string, venue: VenueTarget): ScrapedEvent[] {
+  let parsed: ical.CalendarResponse;
+  try {
+    parsed = ical.sync.parseICS(icsText);
+  } catch {
+    return [];
+  }
+
+  const events: ScrapedEvent[] = [];
+
+  for (const component of Object.values(parsed)) {
+    if (!component || component.type !== 'VEVENT') continue;
+    const vevent = component as ical.VEvent;
+
+    const startsAt = vevent.start instanceof Date ? vevent.start : new Date(String(vevent.start));
+    if (!isFuture(startsAt) || !isWithinLookahead(startsAt)) continue;
+
+    const event = toScrapedEvent(
+      {
+        title: icalStr(vevent.summary),
+        description: icalStr(vevent.description) || undefined,
+        startsAt: startsAt.toISOString(),
+        endsAt: vevent.end instanceof Date ? vevent.end.toISOString() : undefined,
+        address: icalStr(vevent.location) || undefined,
+      },
+      venue,
+    );
+
+    if (event) events.push(event);
+  }
+
+  return events;
+}
+
+async function tierIcal(ctx: ScrapeContext, _page: Page | null): Promise<TierResult> {
+  const candidates = await discoverIcalUrls(ctx);
+
+  for (const url of candidates) {
+    const text = await fetchText(url);
+    if (!text?.includes('BEGIN:VCALENDAR')) continue;
+
+    const events = parseIcalFeed(text, ctx.venue);
+    if (events.length > 0) {
+      return { events, tier: ScrapeStrategy.ICAL, confidence: 5 };
+    }
+  }
+
   return { events: [], tier: ScrapeStrategy.ICAL, confidence: 5 };
 }
 

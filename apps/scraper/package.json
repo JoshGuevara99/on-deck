@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
-    "@prisma/client": "^6.0.0",
-    "dotenv": "^16.4.5",
     "@google/generative-ai": "^0.24.0",
+    "@prisma/client": "^6.0.0",
+    "cheerio": "^1.2.0",
+    "dotenv": "^16.4.5",
+    "node-ical": "^0.25.6",
     "playwright": "^1.50.0",
     "zod": "^4.3.6"
   },
