@@ -31,6 +31,14 @@ enum EventSource {
   VENUE_SCRAPER  // scraped from a venue website via Playwright + Gemini
 }
 
+enum ScrapeStrategy {
+  ICAL           // iCal/RSS feed discovery
+  STATIC_HTML    // HTTP fetch + JSON-LD / CSS selectors (no browser)
+  PLAYWRIGHT_HTML // Browser render + JSON-LD / CSS selectors
+  LLM_TEXT       // Cleaned HTML → Gemini Flash
+  VISION         // Screenshot → Vision model (last resort)
+}
+
 enum PerformerType {
   MUSICIAN
   COMEDIAN
@@ -84,6 +92,22 @@ model Venue {
   instagramHandle String?
 
   events Event[]
+}
+
+/**
+ * Persists per-venue scrape state across runs.
+ * Allows the pipeline to skip straight to the last known working tier
+ * and skip processing entirely when the page content hasn't changed.
+ */
+model VenueScrapeState {
+  url                 String          @id  // events page URL — stable identifier
+  venueName           String
+  lastScrapedAt       DateTime?
+  successfulTier      ScrapeStrategy?      // last tier that returned events
+  htmlHash            String?              // SHA-256 prefix of last-seen page content
+  consecutiveFailures Int             @default(0)
+  lastError           String?
+  updatedAt           DateTime        @updatedAt
 }
 
 model ScraperRun {

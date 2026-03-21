@@ -31,7 +31,6 @@ pnpm db:generate   # regenerate Prisma client after schema changes
 pnpm db:migrate    # create + apply a new migration
 pnpm db:push       # sync schema without migration history (prototype only)
 pnpm db:studio     # open Prisma Studio GUI
-pnpm db:reset      # reset DB and re-run all migrations (destructive)
 ```
 
 ### Build & type-check
