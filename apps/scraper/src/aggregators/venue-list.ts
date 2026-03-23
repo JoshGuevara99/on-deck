@@ -537,12 +537,28 @@ async function tierStaticHtml(ctx: ScrapeContext, _page: Page | null): Promise<T
 }
 
 async function tierPlaywrightHtml(ctx: ScrapeContext, page: Page | null): Promise<TierResult> {
-  // TODO:
-  //   1. page is already navigated by the orchestrator — extract rendered HTML
-  //   2. Store full HTML in ctx.renderedHtml
-  //   3. Extract visible text (body.innerText minus nav/footer) → ctx.pageText
-  //   4. Re-run JSON-LD + CSS selector logic on rendered DOM (same as Tier 1)
-  //   5. This catches SPAs where Tier 1 returns empty shells
+  if (!page) return { events: [], tier: ScrapeStrategy.PLAYWRIGHT_HTML, confidence: 5 };
+
+  // Extract fully rendered HTML (post-JS execution) and store for state hashing
+  ctx.renderedHtml = await page.content();
+
+  // Extract visible page text: strip noise elements then read innerText.
+  // innerText respects CSS visibility and inserts newlines at block boundaries,
+  // giving Tier 3 (LLM) clean, human-readable text without nav/footer clutter.
+  ctx.pageText = await page.evaluate(() => {
+    document.querySelectorAll('nav, footer, header, script, style, noscript, [aria-hidden="true"]')
+      .forEach((el) => el.remove());
+    return document.body?.innerText ?? '';
+  });
+
+  // Re-run the same extraction logic as Tier 1 on the now-rendered DOM.
+  // This catches SPAs that serve an empty shell to plain fetch().
+  const jsonLdEvents = extractJsonLd(ctx.renderedHtml, ctx.venue);
+  if (jsonLdEvents.length) return { events: jsonLdEvents, tier: ScrapeStrategy.PLAYWRIGHT_HTML, confidence: 5 };
+
+  const selectorEvents = extractBySelectors(ctx.renderedHtml, ctx.venue);
+  if (selectorEvents.length) return { events: selectorEvents, tier: ScrapeStrategy.PLAYWRIGHT_HTML, confidence: 5 };
+
   return { events: [], tier: ScrapeStrategy.PLAYWRIGHT_HTML, confidence: 5 };
 }
 
