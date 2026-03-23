@@ -87,6 +87,8 @@ export default function EventDetailScreen() {
   async function handleRsvp() {
     if (!event) return;
     const going = !rsvped;
+
+    // Optimistic update
     if (going) {
       addAttending(event);
       setAttendeeCount((c) => c + 1);
@@ -94,16 +96,24 @@ export default function EventDetailScreen() {
       removeAttending(event.id);
       setAttendeeCount((c) => Math.max(0, c - 1));
     }
+
     try {
       const token = await getToken();
-      if (!token) return;
+      if (!token) throw new Error('Not authenticated');
       if (going) {
         await apiClient.attendees.rsvp(event.id, token);
       } else {
         await apiClient.attendees.cancel(event.id, token);
       }
     } catch {
-      // optimistic — ignore
+      // Roll back optimistic update on failure
+      if (going) {
+        removeAttending(event.id);
+        setAttendeeCount((c) => Math.max(0, c - 1));
+      } else {
+        addAttending(event);
+        setAttendeeCount((c) => c + 1);
+      }
     }
   }
 
