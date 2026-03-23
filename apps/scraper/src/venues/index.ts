@@ -13,6 +13,14 @@ export interface VenueTarget {
   url: string;
   city: string;
   state: string;
+  /**
+   * IANA timezone name for this venue.
+   * Used to correctly interpret "floating" datetimes in iCal feeds and
+   * date-only values in HTML — feeds that omit timezone info are assumed
+   * to be in this timezone rather than UTC.
+   * Defaults to 'America/New_York' in all extraction helpers.
+   */
+  timezone?: string;
 }
 
 export { NYC_VENUES } from './nyc';

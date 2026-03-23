@@ -3,10 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "scrape": "cd ../.. && tsx apps/scraper/src/index.ts --source claude",
-    "aggregate": "cd ../.. && tsx apps/scraper/src/index.ts --source eventbrite",
-    "aggregate:venues": "cd ../.. && tsx apps/scraper/src/index.ts --source venue-list",
-    "aggregate:all": "cd ../.. && tsx apps/scraper/src/index.ts --source all",
+    "scrape:claude":  "cd ../.. && tsx apps/scraper/src/index.ts --source claude",
+    "scrape:venues":  "cd ../.. && tsx apps/scraper/src/index.ts --source venue-list",
+    "scrape:eb":      "cd ../.. && tsx apps/scraper/src/index.ts --source eventbrite",
+    "scrape:all":     "cd ../.. && tsx apps/scraper/src/index.ts --source all",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

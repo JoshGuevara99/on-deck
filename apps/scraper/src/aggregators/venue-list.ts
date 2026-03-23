@@ -22,7 +22,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import type { ScrapedEvent } from '../scrape';
 import type { VenueTarget } from '../venues/index';
 import { prisma } from '../ingest';
-import { toScrapedEvent, isFuture, isWithinLookahead } from '../extract-utils';
+import { toScrapedEvent, isFuture, isWithinLookahead, isMidnight, floatingToUTC, extractTimeFromText, mergeDateAndTime, DEFAULT_TIMEZONE } from '../extract-utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -251,6 +251,25 @@ function icalStr(value: unknown): string {
   return '';
 }
 
+/**
+ * Returns true if a node-ical Date was a "floating" datetime (no TZID, no Z).
+ * Floating datetimes are parsed as if in the server's local timezone (UTC on
+ * most CI/production hosts), so we must re-interpret them in the venue's timezone.
+ */
+function isFloatingDatetime(d: Date): boolean {
+  const tz = (d as any).tz as string | undefined;
+  return !tz || tz === '';
+}
+
+/**
+ * Normalises a Date returned by node-ical for a given venue timezone.
+ *  - Floating datetimes (no TZ info)  → convert from naive-UTC to venue local
+ *  - UTC / named-TZ datetimes         → already correct, return as-is
+ */
+function normaliseIcalDate(d: Date, tz: string): Date {
+  return isFloatingDatetime(d) ? floatingToUTC(d, tz) : d;
+}
+
 /** Parses a fetched .ics string and maps valid entries to ScrapedEvent[]. */
 function parseIcalFeed(icsText: string, venue: VenueTarget): ScrapedEvent[] {
   let parsed: ical.CalendarResponse;
@@ -260,6 +279,7 @@ function parseIcalFeed(icsText: string, venue: VenueTarget): ScrapedEvent[] {
     return [];
   }
 
+  const tz = venue.timezone ?? DEFAULT_TIMEZONE;
   const now = new Date();
   const maxDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
   const events: ScrapedEvent[] = [];
@@ -275,44 +295,64 @@ function parseIcalFeed(icsText: string, venue: VenueTarget): ScrapedEvent[] {
     const description = icalStr(vevent.description) || undefined;
     const address = icalStr(vevent.location) || undefined;
 
-    // Compute event duration so recurring occurrences get the right end time
-    const durationMs =
-      vevent.end instanceof Date && vevent.start instanceof Date
-        ? vevent.end.getTime() - vevent.start.getTime()
-        : 0;
-
     if (vevent.rrule) {
       // Recurring event — store only the next upcoming occurrence.
-      // isRecurring + recurringDescription tells the user it repeats regularly.
-      // When this occurrence ages off, the next scraper run inserts the new next one.
       // .after() is not implemented in node-ical's rrule wrapper — use between() and take the first result
       const next: Date | undefined = vevent.rrule.between(now, maxDate, true)[0];
-      if (next && isWithinLookahead(next)) {
-        const endsAt = durationMs > 0
-          ? new Date(next.getTime() + durationMs).toISOString()
-          : undefined;
-        const recurringDescription = (() => {
-          try { return (vevent.rrule as any).toText?.() ?? undefined; } catch { return undefined; }
-        })();
-        const event = toScrapedEvent(
-          { title, description, startsAt: next.toISOString(), endsAt, address, isRecurring: true, recurringDescription },
-          venue,
-        );
-        if (event) events.push(event);
+      if (!next || !isWithinLookahead(next)) continue;
+
+      // Recurring rule dates are always in UTC (rrule library handles TZ internally),
+      // but the original DTSTART time component may be floating — re-apply if needed.
+      const normalisedNext = isFloatingDatetime(vevent.start as Date)
+        ? (() => {
+            // Re-apply the floating→TZ correction to the expanded occurrence date.
+            // next preserves the wall-clock time from DTSTART but in UTC (i.e. treating
+            // it as UTC already). Apply the same tz offset correction we do for singles.
+            return floatingToUTC(next, tz);
+          })()
+        : next;
+
+      if (isMidnight(normalisedNext) && isFloatingDatetime(vevent.start as Date)) {
+        console.warn(`  [${venue.name}] Skipping "${title}" — midnight floating time (likely date-only feed entry)`);
+        continue;
       }
-    } else {
-      // Single occurrence
-      const startsAt = vevent.start instanceof Date ? vevent.start : new Date(String(vevent.start));
-      if (!isFuture(startsAt) || !isWithinLookahead(startsAt)) continue;
+
+      // Compute duration from the original start/end so recurring occurrences get the right end time
+      const durationMs =
+        vevent.end instanceof Date && vevent.start instanceof Date
+          ? vevent.end.getTime() - vevent.start.getTime()
+          : 0;
+
+      const endsAt = durationMs > 0
+        ? new Date(normalisedNext.getTime() + durationMs).toISOString()
+        : undefined;
+      const recurringDescription = (() => {
+        try { return (vevent.rrule as any).toText?.() ?? undefined; } catch { return undefined; }
+      })();
 
       const event = toScrapedEvent(
-        {
-          title,
-          description,
-          startsAt: startsAt.toISOString(),
-          endsAt: vevent.end instanceof Date ? vevent.end.toISOString() : undefined,
-          address,
-        },
+        { title, description, startsAt: normalisedNext.toISOString(), endsAt, address, isRecurring: true, recurringDescription },
+        venue,
+      );
+      if (event) events.push(event);
+    } else {
+      // Single occurrence
+      const rawStart = vevent.start instanceof Date ? vevent.start : new Date(String(vevent.start));
+      const startsAt = normaliseIcalDate(rawStart, tz);
+
+      if (!isFuture(startsAt) || !isWithinLookahead(startsAt)) continue;
+
+      // Skip midnight floating entries — almost certainly a date-only value
+      if (isMidnight(startsAt) && isFloatingDatetime(rawStart)) {
+        console.warn(`  [${venue.name}] Skipping "${title}" — midnight floating time (likely date-only feed entry)`);
+        continue;
+      }
+
+      const rawEnd = vevent.end instanceof Date ? vevent.end : undefined;
+      const endsAt = rawEnd ? normaliseIcalDate(rawEnd, tz).toISOString() : undefined;
+
+      const event = toScrapedEvent(
+        { title, description, startsAt: startsAt.toISOString(), endsAt, address },
         venue,
       );
       if (event) events.push(event);
@@ -349,6 +389,7 @@ async function tierIcal(ctx: ScrapeContext, _page: Page | null): Promise<TierRes
 /** Extract events from JSON-LD <script type="application/ld+json"> tags. */
 function extractJsonLd(html: string, venue: VenueTarget): ScrapedEvent[] {
   const $ = cheerio.load(html);
+  const tz = venue.timezone ?? DEFAULT_TIMEZONE;
   const events: ScrapedEvent[] = [];
 
   $('script[type="application/ld+json"]').each((_, el) => {
@@ -361,6 +402,16 @@ function extractJsonLd(html: string, venue: VenueTarget): ScrapedEvent[] {
       const obj = item as Record<string, any>;
       if (obj['@type'] !== 'Event' || !obj.name || !obj.startDate) continue;
 
+      // Use the event name + description as context for time extraction when
+      // startDate is date-only (e.g. "WEDNESDAY 5:30PM OPEN MIC" → extracts 5:30pm)
+      const contextText = `${obj.name} ${obj.description ?? ''}`;
+      const startsAt = resolveDateTime(String(obj.startDate), contextText, tz);
+      if (!startsAt) continue; // date-only with no time found — skip rather than store midnight
+
+      const endsAt = obj.endDate
+        ? resolveDateTime(String(obj.endDate), contextText, tz) ?? undefined
+        : undefined;
+
       let address: string | undefined;
       if (obj.location?.address) {
         address = typeof obj.location.address === 'string'
@@ -371,8 +422,8 @@ function extractJsonLd(html: string, venue: VenueTarget): ScrapedEvent[] {
       const event = toScrapedEvent({
         title: obj.name,
         description: obj.description,
-        startsAt: obj.startDate,
-        endsAt: obj.endDate,
+        startsAt,
+        endsAt,
         address,
         venueName: obj.location?.name,
       }, venue);
@@ -384,44 +435,84 @@ function extractJsonLd(html: string, venue: VenueTarget): ScrapedEvent[] {
   return events;
 }
 
+/**
+ * Returns true if a datetime attribute value is date-only (no time component).
+ * e.g. "2026-03-22" → true,  "2026-03-22T17:30:00" → false
+ */
+function isDateOnly(datetime: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(datetime.trim());
+}
+
+/**
+ * Attempts to resolve a full datetime from a potentially date-only `datetime`
+ * attribute by searching the container text for a time string.
+ * Falls back to the original value if no time is found.
+ * Applies the venue's timezone when the resulting datetime has no TZ offset.
+ */
+function resolveDateTime(datetime: string, containerText: string, tz: string): string | null {
+  if (!isDateOnly(datetime)) {
+    // Has a time component — apply TZ correction if no offset present
+    if (!/[Z+\-]\d{2}:?\d{2}$/.test(datetime) && !datetime.endsWith('Z')) {
+      // Floating datetime string (e.g. "2026-03-22T17:30:00" no TZ suffix)
+      const d = new Date(datetime + 'Z'); // parse naively as UTC
+      if (isNaN(d.getTime())) return null;
+      return floatingToUTC(d, tz).toISOString();
+    }
+    return datetime; // already timezone-aware
+  }
+
+  // Date-only — try to find a time string nearby
+  const timeStr = extractTimeFromText(containerText);
+  if (timeStr) {
+    const merged = mergeDateAndTime(datetime, timeStr, tz);
+    return merged?.toISOString() ?? null;
+  }
+
+  // No time found — skip rather than storing a misleading midnight value
+  return null;
+}
+
 /** Extract events using CSS selectors for known CMS platforms. */
 function extractBySelectors(html: string, venue: VenueTarget): ScrapedEvent[] {
   const $ = cheerio.load(html);
+  const tz = venue.timezone ?? DEFAULT_TIMEZONE;
   const events: ScrapedEvent[] = [];
 
-  const tryAdd = (title: string, datetime: string, description?: string) => {
-    if (!title || !datetime) return;
+  const tryAdd = (title: string, rawDatetime: string, containerText: string, description?: string) => {
+    if (!title || !rawDatetime) return;
+    const datetime = resolveDateTime(rawDatetime, containerText, tz);
+    if (!datetime) return;
     const event = toScrapedEvent({ title, description, startsAt: datetime }, venue);
     if (event) events.push(event);
   };
 
   // ── Squarespace ──────────────────────────────────────────────────────────────
   $('.eventlist-event').each((_, el) => {
-    const title = $(el).find('.eventlist-title').text().trim();
+    const title    = $(el).find('.eventlist-title').text().trim();
     const datetime = $(el).find('time[datetime]').attr('datetime') ?? '';
-    const description = $(el).find('.eventlist-description').text().trim();
-    tryAdd(title, datetime, description);
+    const desc     = $(el).find('.eventlist-description').text().trim();
+    tryAdd(title, datetime, $(el).text(), desc);
   });
   if (events.length) return events;
 
   // ── WordPress: The Events Calendar plugin ────────────────────────────────────
   $('.tribe-event, .type-tribe_events').each((_, el) => {
-    const title = $(el).find('h2, h3, .tribe-event-url').first().text().trim();
-    const datetime = $(el).find('time[datetime], abbr[title]').first().attr('datetime')
+    const title    = $(el).find('h2, h3, .tribe-event-url').first().text().trim();
+    const datetime = $(el).find('time[datetime]').first().attr('datetime')
       ?? $(el).find('abbr[title]').first().attr('title') ?? '';
-    const description = $(el).find('.tribe-event-description, .tribe-events-schedule').text().trim();
-    tryAdd(title, datetime, description);
+    const desc     = $(el).find('.tribe-event-description, .tribe-events-schedule').text().trim();
+    tryAdd(title, datetime, $(el).text(), desc);
   });
   if (events.length) return events;
 
   // ── Generic: any container with a <time datetime="..."> ──────────────────────
   $('time[datetime], [datetime]').each((_, el) => {
-    const datetime = $(el).attr('datetime') ?? '';
+    const datetime  = $(el).attr('datetime') ?? '';
     const container = $(el).closest('article, li, div[class*="event" i], div[class*="Event"]');
     if (!container.length) return;
     const title = container.find('h1,h2,h3,h4,a').first().text().trim();
-    const description = container.find('p').first().text().trim();
-    tryAdd(title, datetime, description);
+    const desc  = container.find('p').first().text().trim();
+    tryAdd(title, datetime, container.text(), desc);
   });
 
   return events;

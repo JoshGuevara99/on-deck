@@ -11,6 +11,8 @@ import type { VenueTarget } from './venues/index';
 
 export const LOOKAHEAD_DAYS = 90;
 
+export const DEFAULT_TIMEZONE = 'America/New_York';
+
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 export function todayStr(): string {
@@ -29,6 +31,75 @@ export function isFuture(date: Date): boolean {
 
 export function isWithinLookahead(date: Date): boolean {
   return date.getTime() < Date.now() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Returns true if the time component is exactly midnight (00:00:00.000).
+ * Used to detect date-only values that slipped through without a real time.
+ */
+export function isMidnight(date: Date): boolean {
+  return date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0;
+}
+
+/**
+ * How many minutes `tz` is behind UTC at the given moment.
+ * America/New_York in summer (EDT) = 240, in winter (EST) = 300.
+ */
+function tzOffsetMinutes(tz: string, at: Date): number {
+  const utcDate = new Date(at.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const tzDate  = new Date(at.toLocaleString('en-US', { timeZone: tz }));
+  return Math.round((utcDate.getTime() - tzDate.getTime()) / 60_000);
+}
+
+/**
+ * Converts a "floating" datetime (no timezone info, parsed naively as UTC by
+ * node-ical or cheerio) to the correct UTC instant for the venue's timezone.
+ *
+ * Example: floating "2026-03-22T17:30:00" in America/New_York (EDT, UTC-4)
+ *   → stored as 2026-03-22T17:30:00.000Z by the parser
+ *   → correct UTC = 2026-03-22T21:30:00.000Z  (17:30 + 4h offset)
+ */
+export function floatingToUTC(date: Date, tz: string = DEFAULT_TIMEZONE): Date {
+  const offsetMs = tzOffsetMinutes(tz, date) * 60_000;
+  return new Date(date.getTime() + offsetMs);
+}
+
+/**
+ * Extracts a time string (e.g. "5:30 PM", "7pm", "19:30") from arbitrary text.
+ * Returns null if no time-like pattern is found.
+ */
+export function extractTimeFromText(text: string): string | null {
+  const match = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|AM|PM)\b/);
+  if (!match) return null;
+  const hour = match[1]!;
+  const min  = match[2] ?? '00';
+  const ampm = match[3]!.toLowerCase();
+  return `${hour}:${min} ${ampm}`;
+}
+
+/**
+ * Merges a date-only string (e.g. "2026-03-22") with a time string (e.g. "5:30 pm")
+ * into a full ISO datetime interpreted in the given timezone.
+ * Returns null if parsing fails.
+ */
+export function mergeDateAndTime(dateStr: string, timeStr: string, tz: string = DEFAULT_TIMEZONE): Date | null {
+  // Parse the time string to hours + minutes
+  const match = timeStr.match(/(\d{1,2}):?(\d{2})?\s*(am|pm|AM|PM)/i);
+  if (!match) return null;
+
+  let hours   = parseInt(match[1]!, 10);
+  const mins  = parseInt(match[2] ?? '0', 10);
+  const isPM  = /pm/i.test(match[3]!);
+
+  if (isPM && hours !== 12) hours += 12;
+  if (!isPM && hours === 12) hours = 0;
+
+  // Build a "floating" datetime string (no TZ)
+  const floating = `${dateStr}T${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+  const naiveDate = new Date(floating + 'Z'); // treat naively as UTC first
+  if (isNaN(naiveDate.getTime())) return null;
+
+  return floatingToUTC(naiveDate, tz);
 }
 
 // ─── Event classification ─────────────────────────────────────────────────────
@@ -69,11 +140,23 @@ export interface RawEventFields {
 }
 
 /**
- * Validates and coerces raw extracted fields into a ScrapedEvent.
- * Returns null if the event fails any filter (past, too far out, not participatory).
+ * Returns true if a datetime string has no timezone info (no Z, no +HH:MM, no -HH:MM).
+ * These "floating" strings must be interpreted in the venue's local timezone.
  */
+function isFloatingString(s: string): boolean {
+  return !/Z$|[+-]\d{2}:?\d{2}$/.test(s.trim());
+}
+
 export function toScrapedEvent(fields: RawEventFields, venue: VenueTarget): ScrapedEvent | null {
-  const startsAt = new Date(fields.startsAt);
+  const tz = venue.timezone ?? DEFAULT_TIMEZONE;
+
+  // If the caller passed a floating datetime string (no TZ offset), treat it as
+  // venue local time rather than UTC — the last safeguard before storing.
+  const rawStart = fields.startsAt.includes('T') && isFloatingString(fields.startsAt)
+    ? floatingToUTC(new Date(fields.startsAt + 'Z'), tz)
+    : new Date(fields.startsAt);
+
+  const startsAt = rawStart;
   if (isNaN(startsAt.getTime()) || !isFuture(startsAt) || !isWithinLookahead(startsAt)) {
     return null;
   }

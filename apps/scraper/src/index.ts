@@ -15,18 +15,34 @@ import { NYC_VENUES } from './venues/index';
 
 // ─── CLI flags ────────────────────────────────────────────────────────────────
 // Usage:
-//   pnpm --filter @on-deck/scraper scrape                        (Claude only)
-//   pnpm --filter @on-deck/scraper aggregate                     (Eventbrite only)
-//   pnpm --filter @on-deck/scraper scrape -- --city "Austin"
-//   pnpm --filter @on-deck/scraper aggregate -- --city "New York"
+//   pnpm --filter @on-deck/scraper scrape:claude               (Claude scraper — needs ANTHROPIC_API_KEY)
+//   pnpm --filter @on-deck/scraper scrape:venues               (Venue-list tier 0/1 — no extra keys needed)
+//   pnpm --filter @on-deck/scraper scrape:eb                   (Eventbrite — needs EVENTBRITE_API_KEY)
+//   pnpm --filter @on-deck/scraper scrape:all                  (all sources)
+//   pnpm --filter @on-deck/scraper scrape:claude -- --city "Austin"
 
-type Source = 'claude' | 'eventbrite' | 'venue-list' | 'all';
+const VALID_SOURCES = ['claude', 'eventbrite', 'venue-list', 'all'] as const;
+type Source = (typeof VALID_SOURCES)[number];
 
 function getArgs(): { cities: CityTarget[]; source: Source } {
   const args = process.argv.slice(2);
 
-  const cityArg = args.find((_, i) => args[i - 1] === '--city');
-  const sourceArg = (args.find((_, i) => args[i - 1] === '--source') ?? 'claude') as Source;
+  // Use last-wins so that explicit CLI flags always override script-level defaults.
+  const lastValue = (flag: string) => {
+    let result: string | undefined;
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === flag && i + 1 < args.length) result = args[i + 1];
+    }
+    return result;
+  };
+
+  const cityArg   = lastValue('--city');
+  const sourceArg = lastValue('--source');
+
+  if (!sourceArg || !VALID_SOURCES.includes(sourceArg as Source)) {
+    console.error(`Error: --source is required. Valid values: ${VALID_SOURCES.join(', ')}`);
+    process.exit(1);
+  }
 
   let cities = SCRAPE_CITIES;
   if (cityArg) {
@@ -38,14 +54,14 @@ function getArgs(): { cities: CityTarget[]; source: Source } {
     cities = [match];
   }
 
-  return { cities, source: sourceArg };
+  return { cities, source: sourceArg as Source };
 }
 
 // ─── Runners ─────────────────────────────────────────────────────────────────
 
 async function runClaude(targets: CityTarget[]) {
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('Error: ANTHROPIC_API_KEY is not set.');
+    console.error('Error: ANTHROPIC_API_KEY is required for the Claude scraper. Use scrape:venues or scrape:eb to run without it.');
     process.exit(1);
   }
 
@@ -89,7 +105,7 @@ async function runClaude(targets: CityTarget[]) {
 async function runEventbrite(targets: CityTarget[]) {
   const apiKey = process.env.EVENTBRITE_API_KEY;
   if (!apiKey) {
-    console.error('Error: EVENTBRITE_API_KEY is not set.');
+    console.error('Error: EVENTBRITE_API_KEY is required for the Eventbrite scraper. Use scrape:venues or scrape:claude to run without it.');
     process.exit(1);
   }
 
