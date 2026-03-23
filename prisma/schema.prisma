@@ -108,6 +108,26 @@ model VenueScrapeState {
   consecutiveFailures Int             @default(0)
   lastError           String?
   updatedAt           DateTime        @updatedAt
+
+  // ── Tier 3 (Vision) state ──────────────────────────────────────────────────
+  tier3LastCalledAt        DateTime?        // last time a live Gemini call was made
+  tier3CachedAt            DateTime?        // timestamp of last successful Tier 3 result
+  tier3CachedEvents        Json?            // ScrapedEvent[] from last successful call
+  tier3ConsecutiveFailures Int    @default(0) // consecutive weekly failures
+  tier3Suspended           Boolean @default(false) // true after 3 consecutive failures
+}
+
+model Tier3Log {
+  id         String   @id @default(cuid())
+  url        String
+  venueName  String
+  invokedAt  DateTime @default(now())
+  succeeded  Boolean
+  eventCount Int      @default(0)
+  fromCache  Boolean  @default(false)
+  error      String?
+
+  @@index([url, invokedAt])
 }
 
 model ScraperRun {

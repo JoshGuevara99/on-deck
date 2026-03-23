@@ -21,6 +21,14 @@ export interface VenueTarget {
    * Defaults to 'America/New_York' in all extraction helpers.
    */
   timezone?: string;
+  /**
+   * CSS selector for the calendar/events container on this venue's page.
+   * When set, Tier 3 screenshots exactly this element rather than
+   * auto-detecting it. Find it via Chrome DevTools: inspect the calendar
+   * section → right-click the element → Copy → Copy selector.
+   * Falls back to auto-detection if omitted.
+   */
+  calendarSelector?: string;
 }
 
 export { NYC_VENUES } from './nyc';
