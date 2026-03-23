@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { clerkMiddleware } from '@clerk/express';
 import { healthRouter } from './routes/health';
 import { eventsRouter } from './routes/events';
@@ -11,7 +12,11 @@ import { unsplashRouter } from './routes/unsplash';
 
 export const app = express();
 
-app.use(cors());
+app.use(helmet());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
+  credentials: true,
+}));
 app.use(express.json());
 app.use(clerkMiddleware());
 

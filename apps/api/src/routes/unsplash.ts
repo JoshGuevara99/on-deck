@@ -45,6 +45,11 @@ unsplashRouter.get('/track', async (req, res, next) => {
     const url = (req.query.url as string | undefined)?.trim();
     if (!url) return res.status(400).json({ error: 'url is required' });
 
+    // SSRF guard — only allow Unsplash API URLs
+    if (!url.startsWith('https://api.unsplash.com/')) {
+      return res.status(400).json({ error: 'Invalid download URL' });
+    }
+
     await fetch(url, {
       headers: { Authorization: `Client-ID ${ACCESS_KEY}` },
     });

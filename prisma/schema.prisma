@@ -184,6 +184,10 @@ model Event {
   attendees EventAttendee[]
 
   @@unique([source, externalId])
+  @@index([city, startsAt])   // city filter + date range — most common query pattern
+  @@index([hostId])           // host's event roster lookup
+  @@index([submittedBy])      // user's submitted events
+  @@index([startsAt])         // date range queries without city filter
 }
 
 model EventSignup {
@@ -205,6 +209,7 @@ model EventSignup {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
+  @@index([eventId, status])  // slot counting on every signup creation
 }
 
 model EventAttendee {

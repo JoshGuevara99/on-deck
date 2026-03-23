@@ -15,9 +15,11 @@ export default function SignInPage() {
   const [password, setPassword] = React.useState('')
   const [code, setCode] = React.useState('')
   const [showEmailCode, setShowEmailCode] = React.useState(false)
+  const [error, setError] = React.useState('')
 
   const onSignInPress = React.useCallback(async () => {
     if (!isLoaded) return
+    setError('')
 
     try {
       const signInAttempt = await signIn.create({
@@ -46,15 +48,17 @@ export default function SignInPage() {
           setShowEmailCode(true)
         }
       } else {
-        console.error(JSON.stringify(signInAttempt, null, 2))
+        setError('Sign in failed. Please try again.')
       }
-    } catch (err) {
-      console.error(JSON.stringify(err, null, 2))
+    } catch (err: any) {
+      const message = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? 'Sign in failed. Please try again.'
+      setError(message)
     }
   }, [isLoaded, signIn, setActive, router, emailAddress, password])
 
   const onVerifyPress = React.useCallback(async () => {
     if (!isLoaded) return
+    setError('')
 
     try {
       const signInAttempt = await signIn.attemptSecondFactor({
@@ -71,10 +75,11 @@ export default function SignInPage() {
           },
         })
       } else {
-        console.error(JSON.stringify(signInAttempt, null, 2))
+        setError('Verification failed. Please try again.')
       }
-    } catch (err) {
-      console.error(JSON.stringify(err, null, 2))
+    } catch (err: any) {
+      const message = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? 'Verification failed. Please try again.'
+      setError(message)
     }
   }, [isLoaded, signIn, setActive, router, code])
 
@@ -90,9 +95,10 @@ export default function SignInPage() {
           value={code}
           placeholder="Enter verification code"
           placeholderTextColor={colors.textMuted}
-          onChangeText={setCode}
+          onChangeText={(v) => { setCode(v); setError('') }}
           keyboardType="numeric"
         />
+        {!!error && <Text style={[styles.errorText, { color: colors.jam }]}>{error}</Text>}
         <Pressable
           style={({ pressed }) => [styles.button, { backgroundColor: colors.gold }, pressed && styles.buttonPressed]}
           onPress={onVerifyPress}
@@ -119,7 +125,7 @@ export default function SignInPage() {
         value={emailAddress}
         placeholder="Enter email"
         placeholderTextColor={colors.textMuted}
-        onChangeText={setEmailAddress}
+        onChangeText={(v) => { setEmailAddress(v); setError('') }}
         keyboardType="email-address"
       />
       <Text style={[styles.label, { color: colors.text }]}>Password</Text>
@@ -129,8 +135,9 @@ export default function SignInPage() {
         placeholder="Enter password"
         placeholderTextColor={colors.textMuted}
         secureTextEntry
-        onChangeText={setPassword}
+        onChangeText={(v) => { setPassword(v); setError('') }}
       />
+      {!!error && <Text style={[styles.errorText, { color: colors.jam }]}>{error}</Text>}
       <Pressable
         style={({ pressed }) => [
           styles.button,
@@ -188,6 +195,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   button: {
     paddingVertical: 12,

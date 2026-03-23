@@ -168,7 +168,10 @@ export const apiClient = {
 
   attendees: {
     async rsvp(eventId: string, token: string): Promise<void> {
-      await post(`/events/${eventId}/attendees`, {}, token);
+      // 409 = already RSVPed — treat as success (idempotent)
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+      const res = await fetch(`${API_URL}/events/${eventId}/attendees`, { method: 'POST', headers, body: '{}' });
+      if (!res.ok && res.status !== 409) throw new Error(`POST /events/${eventId}/attendees → ${res.status}`);
     },
 
     async cancel(eventId: string, token: string): Promise<void> {
