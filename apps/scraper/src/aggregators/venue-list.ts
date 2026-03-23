@@ -6,12 +6,12 @@
  *   Tier 0  ICAL            — iCal / RSS feed discovery           (free)
  *   Tier 1  STATIC_HTML     — HTTP fetch + JSON-LD / CSS selectors (free)
  *   Tier 2  PLAYWRIGHT_HTML — Browser render + JSON-LD / CSS      (free, slower)
- *   Tier 3  LLM_TEXT        — Cleaned HTML → Gemini Flash          (~free)
- *   Tier 4  VISION          — Screenshot → Vision model            (~$0.01–0.02)
+ *   Tier 3  VISION          — Screenshot → Gemini Flash Vision    (~$0.01–0.02, gated)
  *
  * Per-venue state (VenueScrapeState) is persisted after each run so that:
  *   - Future runs skip straight to the last known working tier
- *   - Runs are skipped entirely when the page content hasn't changed (hash match)
+ *   - Tier 3 is never called more than once per venue per 7-day window
+ *   - Venues that fail Tier 3 three consecutive weeks are suspended
  */
 
 import { createHash } from 'node:crypto';
@@ -23,6 +23,7 @@ import type { ScrapedEvent } from '../scrape';
 import type { VenueTarget } from '../venues/index';
 import { prisma } from '../ingest';
 import { toScrapedEvent, isFuture, isWithinLookahead, isMidnight, floatingToUTC, extractTimeFromText, mergeDateAndTime, DEFAULT_TIMEZONE } from '../extract-utils';
+import { callGeminiVision } from '../llm/gemini';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -562,25 +563,213 @@ async function tierPlaywrightHtml(ctx: ScrapeContext, page: Page | null): Promis
   return { events: [], tier: ScrapeStrategy.PLAYWRIGHT_HTML, confidence: 5 };
 }
 
-async function tierLlmText(ctx: ScrapeContext, _page: Page | null): Promise<TierResult> {
-  // TODO:
-  //   1. Require ctx.pageText (populated by PLAYWRIGHT_HTML) — skip if missing
-  //   2. Run isParticipatory() on pageText first — skip LLM call if no signal words
-  //   3. Truncate to ~4k tokens
-  //   4. Call Gemini Flash with strict JSON schema prompt
-  //   5. Parse + validate response via Zod ScrapedEventSchema
-  //   6. Each event should include a confidence score (1–5)
-  return { events: [], tier: ScrapeStrategy.LLM_TEXT, confidence: 5 };
+// ─── Tier 3: Vision (Gemini Flash) ───────────────────────────────────────────
+
+const TIER3_COOLDOWN_MS  = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TIER3_SUSPEND_AFTER = 3;                         // consecutive weekly failures
+const MAX_SCREENSHOT_BYTES = 1_000_000;                // 1 MB
+const MAX_SCREENSHOT_HEIGHT = 2000;                    // px — clip fallback
+
+/**
+ * Returns the reason Tier 3 should be skipped, or null if it should run.
+ * Checks suspension, 7-day cooldown, and whether a cached result is still fresh.
+ */
+function tier3SkipReason(state: Awaited<ReturnType<typeof loadScrapeState>>): string | null {
+  if (!state) return null; // first run — proceed
+
+  if (state.tier3Suspended) return 'suspended after repeated failures';
+
+  const now = Date.now();
+
+  // Fresh cache → use it (caller handles returning cached events)
+  if (state.tier3CachedAt && now - state.tier3CachedAt.getTime() < TIER3_COOLDOWN_MS) {
+    return 'cache_hit'; // special token — caller returns cache, doesn't skip
+  }
+
+  // Recent failed call within cooldown window → skip
+  if (state.tier3LastCalledAt && now - state.tier3LastCalledAt.getTime() < TIER3_COOLDOWN_MS) {
+    return 'called within 7-day cooldown window';
+  }
+
+  return null; // eligible for a live call
+}
+
+/** Captures a focused screenshot of the events/calendar section, or clips to max height. */
+async function captureEventScreenshot(page: Page): Promise<Buffer> {
+  // Try to find a calendar/events container by common keywords in id/class/aria-label
+  const clip = await page.evaluate(() => {
+    const keywords = ['event', 'calendar', 'schedule', 'upcoming', 'shows', 'gigs'];
+    const selector = '[id*="event" i], [class*="event" i], [id*="calendar" i], [class*="calendar" i], [id*="schedule" i], [class*="schedule" i], [aria-label*="event" i], [aria-label*="calendar" i]';
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 100 || rect.height < 100) return null; // too small — likely not the calendar
+    return { x: rect.x, y: rect.y, width: rect.width, height: Math.min(rect.height, 2000) };
+  });
+
+  if (clip) {
+    return page.screenshot({ type: 'png', clip: { x: clip.x, y: clip.y, width: clip.width, height: clip.height } });
+  }
+
+  // Fallback: full page clipped to max height
+  return page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1280, height: MAX_SCREENSHOT_HEIGHT } });
+}
+
+/** Resizes a PNG buffer by re-screenshotting at half dimensions if over size limit. */
+async function compressIfNeeded(buf: Buffer, page: Page): Promise<Buffer> {
+  if (buf.byteLength <= MAX_SCREENSHOT_BYTES) return buf;
+  // Re-screenshot at half height
+  return page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1280, height: MAX_SCREENSHOT_HEIGHT / 2 } });
+}
+
+/** Persists a Tier 3 invocation to the usage log. */
+async function logTier3(
+  venue: VenueTarget,
+  opts: { succeeded: boolean; eventCount: number; fromCache: boolean; error?: string },
+) {
+  await prisma.tier3Log.create({
+    data: {
+      url:        venue.url,
+      venueName:  venue.name,
+      succeeded:  opts.succeeded,
+      eventCount: opts.eventCount,
+      fromCache:  opts.fromCache,
+      error:      opts.error ?? null,
+    },
+  });
+}
+
+/** Updates VenueScrapeState Tier 3 fields after a live call. */
+async function saveTier3State(
+  venue: VenueTarget,
+  result: { success: boolean; events: ScrapedEvent[] },
+) {
+  const now = new Date();
+
+  if (result.success) {
+    await prisma.venueScrapeState.upsert({
+      where:  { url: venue.url },
+      create: {
+        url:                     venue.url,
+        venueName:               venue.name,
+        tier3LastCalledAt:       now,
+        tier3CachedAt:           now,
+        tier3CachedEvents:       result.events as any,
+        tier3ConsecutiveFailures: 0,
+      },
+      update: {
+        tier3LastCalledAt:        now,
+        tier3CachedAt:            now,
+        tier3CachedEvents:        result.events as any,
+        tier3ConsecutiveFailures: 0,
+      },
+    });
+  } else {
+    const current = await prisma.venueScrapeState.findUnique({ where: { url: venue.url } });
+    const consecutive = (current?.tier3ConsecutiveFailures ?? 0) + 1;
+    const suspended   = consecutive >= TIER3_SUSPEND_AFTER;
+
+    if (suspended) {
+      console.warn(`  [${venue.name}] Tier 3 suspended after ${consecutive} consecutive failures — flagged for manual review`);
+    }
+
+    await prisma.venueScrapeState.upsert({
+      where:  { url: venue.url },
+      create: {
+        url:                      venue.url,
+        venueName:                venue.name,
+        tier3LastCalledAt:        now,
+        tier3ConsecutiveFailures: consecutive,
+        tier3Suspended:           suspended,
+      },
+      update: {
+        tier3LastCalledAt:        now,
+        tier3ConsecutiveFailures: consecutive,
+        tier3Suspended:           suspended,
+      },
+    });
+  }
 }
 
 async function tierVision(ctx: ScrapeContext, page: Page | null): Promise<TierResult> {
-  // TODO:
-  //   1. Take a viewport screenshot via page.screenshot() → store in ctx.screenshot
-  //   2. If a calendar/event container is detectable, crop to it (reduces cost)
-  //   3. Send image to a vision-capable model (Claude Sonnet recommended)
-  //   4. Same structured JSON schema as LLM_TEXT
-  //   5. Gate carefully: only reached when all text-based tiers returned nothing
-  return { events: [], tier: ScrapeStrategy.VISION, confidence: 5 };
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn(`  [${ctx.venue.name}] Skipping Tier 3 — GEMINI_API_KEY not set`);
+    return { events: [], tier: ScrapeStrategy.VISION, confidence: 0 };
+  }
+
+  const state = await loadScrapeState(ctx.venue.url);
+  const skipReason = tier3SkipReason(state);
+
+  // ── Cache hit ────────────────────────────────────────────────────────────────
+  if (skipReason === 'cache_hit' && state?.tier3CachedEvents) {
+    console.log(`  [${ctx.venue.name}] Tier 3 — returning cached result (< 7 days old)`);
+    const cached = (state.tier3CachedEvents as ScrapedEvent[]).map((e) => ({ ...e, sourceUrl: ctx.venue.url }));
+    await logTier3(ctx.venue, { succeeded: true, eventCount: cached.length, fromCache: true });
+    return { events: cached, tier: ScrapeStrategy.VISION, confidence: 4 };
+  }
+
+  // ── Skip ────────────────────────────────────────────────────────────────────
+  if (skipReason) {
+    console.log(`  [${ctx.venue.name}] Skipping Tier 3 — ${skipReason}`);
+    return { events: [], tier: ScrapeStrategy.VISION, confidence: 0 };
+  }
+
+  // ── Live call ────────────────────────────────────────────────────────────────
+  if (!page) {
+    console.warn(`  [${ctx.venue.name}] Skipping Tier 3 — no browser page available`);
+    return { events: [], tier: ScrapeStrategy.VISION, confidence: 0 };
+  }
+
+  console.log(`  [${ctx.venue.name}] Tier 3 — calling Gemini Flash Vision (all free tiers returned 0 events)`);
+
+  let screenshot: Buffer;
+  try {
+    const raw = await captureEventScreenshot(page);
+    screenshot = await compressIfNeeded(raw, page);
+    ctx.screenshot = screenshot;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`  [${ctx.venue.name}] Tier 3 — screenshot failed: ${msg}`);
+    await logTier3(ctx.venue, { succeeded: false, eventCount: 0, fromCache: false, error: msg });
+    await saveTier3State(ctx.venue, { success: false, events: [] });
+    return { events: [], tier: ScrapeStrategy.VISION, confidence: 0 };
+  }
+
+  const { events: rawEvents, fromRetry, error } = await callGeminiVision(screenshot, apiKey);
+
+  if (fromRetry && rawEvents.length === 0) {
+    console.warn(`  [${ctx.venue.name}] Tier 3 — Gemini returned no parseable events after retry`);
+    await logTier3(ctx.venue, { succeeded: false, eventCount: 0, fromCache: false, error });
+    await saveTier3State(ctx.venue, { success: false, events: [] });
+    return { events: [], tier: ScrapeStrategy.VISION, confidence: 0 };
+  }
+
+  // Convert GeminiEvent → ScrapedEvent
+  const tz = ctx.venue.timezone ?? DEFAULT_TIMEZONE;
+  const scraped: ScrapedEvent[] = [];
+
+  for (const ge of rawEvents) {
+    // Merge date + time into a full datetime string
+    const timeStr = ge.time ?? '';
+    const dateTimeStr = timeStr ? `${ge.date} ${timeStr}` : ge.date;
+    const parsed = new Date(dateTimeStr);
+    if (isNaN(parsed.getTime())) continue;
+
+    const event = toScrapedEvent(
+      { title: ge.title, description: ge.description ?? undefined, startsAt: parsed.toISOString() },
+      ctx.venue,
+    );
+    if (event) scraped.push(event);
+  }
+
+  const succeeded = scraped.length > 0;
+  console.log(`  [${ctx.venue.name}] Tier 3 — ${succeeded ? `${scraped.length} events extracted` : 'no participatory events found'}${fromRetry ? ' (after retry)' : ''}`);
+
+  await logTier3(ctx.venue, { succeeded, eventCount: scraped.length, fromCache: false, error });
+  await saveTier3State(ctx.venue, { success: succeeded, events: scraped });
+
+  return { events: scraped, tier: ScrapeStrategy.VISION, confidence: 3 };
 }
 
 // ─── Tier registration ────────────────────────────────────────────────────────
@@ -589,7 +778,7 @@ const TIERS: TierDef[] = [
   { strategy: ScrapeStrategy.ICAL,            fn: tierIcal,           needsBrowser: false },
   { strategy: ScrapeStrategy.STATIC_HTML,     fn: tierStaticHtml,     needsBrowser: false },
   { strategy: ScrapeStrategy.PLAYWRIGHT_HTML, fn: tierPlaywrightHtml, needsBrowser: true  },
-  // Tier 3 (LLM_TEXT) and Tier 4 (VISION) not yet implemented
+  { strategy: ScrapeStrategy.VISION,          fn: tierVision,         needsBrowser: true  },
 ];
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
