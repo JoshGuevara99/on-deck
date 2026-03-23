@@ -7,6 +7,7 @@
     "scrape:venues":  "cd ../.. && tsx apps/scraper/src/index.ts --source venue-list",
     "scrape:eb":      "cd ../.. && tsx apps/scraper/src/index.ts --source eventbrite",
     "scrape:all":     "cd ../.. && tsx apps/scraper/src/index.ts --source all",
+    "reset-scraper":  "cd ../.. && tsx apps/scraper/src/scripts/reset-scraper.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

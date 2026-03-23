@@ -30,12 +30,22 @@ export const NYC_VENUES: VenueTarget[] = [
   { ...NYC, name: 'UCB Comedy NYC',         url: 'https://ucbcomedy.com/shows/?_filter_locations=nyc'                                                                                                                                                                },
   { ...NYC, name: 'QED Astoria',            url: 'https://qedastoria.com/apps/events/calendar'                                                                                                                                                                       },
   { ...NYC, name: 'St. Marks Comedy Club',  url: 'https://www.stmarkscomedyclub.com/calendar'                                                                                                                                                                       },
-  { ...NYC, name: 'Fun Open Mic (Punchup)', url: 'https://punchup.live/v/funyopenmic'                                                                                                                                                                                },
+  { ...NYC, name: 'The New York Comedy School', url: 'https://punchup.live/v/funyopenmic'                                                                                                                                                                                },
+
+  // ── Brooklyn ──────────────────────────────────────────────────────────────
+  { ...NYC, name: 'Rent Money Lounge',      url: 'https://www.rentmoneylounge.com/rml-week'                                                                                                                                                                           },
+  { ...NYC, name: "Pete's Candy Store",     url: 'https://www.petescandystore.com/events-and-series'                                                                                                                                                                   },
+  { ...NYC, name: 'Brooklyn Music Kitchen', url: 'https://brooklynmusickitchen.com/calendar/'                                                                                                                                                                          },
+  { ...NYC, name: 'Pine Box Rock Shop',     url: 'https://www.pineboxrockshop.com/event-calender'                                                                                                                                                                      },
+  { ...NYC, name: "Freddy's Bar",           url: 'https://www.freddysbar.com/'                                                                                                                                                                                         },
+  { ...NYC, name: 'The Coffee Box',     url: 'https://www.cofbx.com/thursdays/'                                                                                                                                                                                    },
+  { ...NYC, name: 'Roots Brooklyn',         url: 'https://www.rootsbrooklyn.com/calender'                                                                                                                                                                              },
+  { ...NYC, name: 'Keepsake House',         url: 'https://www.keepsakehouse.com/shows'                                                                                                                                                                                 },
 
   // ── Ticketing platforms (multi-venue) ─────────────────────────────────────
-  { ...NYC, name: 'OvationTix',             url: 'https://ci.ovationtix.com/35133'                                                                                                                                                                                   },
+  { ...NYC, name: 'Nuyorican Poets Cafe',             url: 'https://ci.ovationtix.com/35133'                                                                                                                                                                                   },
 
   // ── Google Calendars ──────────────────────────────────────────────────────
   // TODO: identify which venue owns this calendar and update the name
-  { ...NYC, name: 'NYC Open Mic (Google Calendar)', url: 'https://calendar.google.com/calendar/u/0/embed?src=727bf823d917312b8095e142dc05e4ee46ae8bac27e85f3b23b94159f09d3abf@group.calendar.google.com&ctz=America/New_York&pli=1' },
+  { ...NYC, name: 'The Grisly Pear', url: 'https://calendar.google.com/calendar/u/0/embed?src=727bf823d917312b8095e142dc05e4ee46ae8bac27e85f3b23b94159f09d3abf@group.calendar.google.com&ctz=America/New_York&pli=1' },
 ];
