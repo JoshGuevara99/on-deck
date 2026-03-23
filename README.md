@@ -116,7 +116,9 @@ pnpm db:generate   # Regenerate Prisma client after schema changes
 pnpm db:studio     # Open visual database browser at localhost:5555
 pnpm db:reset      # Wipe and re-migrate (destructive)
 ```
-
+## Scraper Commands
+```bash
+pnpm --filter @on-deck/scraper scrape:venues 2>&1 #Scrapes venue URLS
 ## Infrastructure
 
 **Local development** uses a plain PostgreSQL database — no Docker required. Create the database once with `createdb ondeck`, set `DATABASE_URL` in `.env`, and run `pnpm db:migrate`.
