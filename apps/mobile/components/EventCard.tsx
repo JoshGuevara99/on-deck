@@ -79,16 +79,28 @@ export function EventCard({ event }: Props) {
         <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
 
         <View style={styles.content}>
-          {/* Badge + time */}
-          <View style={styles.headerRow}>
+          {/* Badge row: type + genres inline */}
+          <View style={styles.badgeRow}>
             <EventTypeBadge type={event.type} />
-            <Text style={styles.time}>
-              {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
-            </Text>
+            {event.genres.slice(0, 3).map((g) => (
+              <View key={g} style={styles.genreTag}>
+                <Text style={styles.genreText}>{g}</Text>
+              </View>
+            ))}
+            {event.genres.length > 3 && (
+              <View style={[styles.genreTag, { borderStyle: 'dashed' }]}>
+                <Text style={styles.genreText}>+{event.genres.length - 3}</Text>
+              </View>
+            )}
           </View>
 
           {/* Title */}
           <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+
+          {/* Date + time */}
+          <Text style={styles.time}>
+            {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
+          </Text>
 
           {/* Venue */}
           <View style={styles.venueRow}>
@@ -101,22 +113,6 @@ export function EventCard({ event }: Props) {
               </>
             ) : null}
           </View>
-
-          {/* Genre tags */}
-          {event.genres.length > 0 && (
-            <View style={styles.genreRow}>
-              {event.genres.slice(0, 3).map((g) => (
-                <View key={g} style={styles.genreTag}>
-                  <Text style={styles.genreText}>{g}</Text>
-                </View>
-              ))}
-              {event.genres.length > 3 && (
-                <View style={[styles.genreTag, { borderStyle: 'dashed' }]}>
-                  <Text style={styles.genreText}>+{event.genres.length - 3}</Text>
-                </View>
-              )}
-            </View>
-          )}
 
           {/* Footer chips */}
           <View style={styles.footer}>
@@ -209,10 +205,11 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     accentBar: { width: 4 },
     content: { flex: 1, padding: 14, gap: 8 },
-    headerRow: {
+    badgeRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: 5,
     },
     time: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
     title: {
@@ -226,16 +223,15 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     venueName: { fontSize: 13, color: colors.textSecondary, fontWeight: '600', flexShrink: 1 },
     separator: { color: colors.border, fontSize: 13 },
     neighborhood: { fontSize: 13, color: colors.textMuted, flexShrink: 1 },
-    genreRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
     genreTag: {
-      paddingHorizontal: 9,
+      paddingHorizontal: 7,
       paddingVertical: 3,
       backgroundColor: colors.surface,
-      borderRadius: 6,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    genreText: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
+    genreText: { fontSize: 10, color: colors.textSecondary, fontWeight: '500' },
     footer: {
       flexDirection: 'row',
       flexWrap: 'wrap',

@@ -17,7 +17,6 @@ import { useEvents } from '../../context/EventsContext';
 import { useLocation } from '../../context/LocationContext';
 import { EventCard } from '../../components/EventCard';
 import { FilterChip } from '../../components/FilterChip';
-import { FilterModal, type ExtraFilters } from '../../components/FilterModal';
 import { CityPickerModal } from '../../components/CityPickerModal';
 import { CalendarModal } from '../../components/CalendarModal';
 import { SectionHeader } from '../../components/SectionHeader';
@@ -62,8 +61,6 @@ const TYPE_FILTERS: { label: string; value: EventTypeFilter }[] = [
   { label: 'Workshop',    value: 'WORKSHOP' },
   { label: 'Open Studio', value: 'OPEN_STUDIO' },
 ];
-
-const INITIAL_EXTRA_FILTERS: ExtraFilters = { tonightOnly: false, freeOnly: false };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,20 +112,16 @@ export default function DiscoverScreen() {
   const [typeFilter, setTypeFilter] = useState<EventTypeFilter>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'all' });
   const [searchQuery, setSearchQuery] = useState('');
-  const [extraFilters, setExtraFilters] = useState<ExtraFilters>(INITIAL_EXTRA_FILTERS);
-  const [showFilterModal, setShowFilterModal] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const activeExtraCount = Object.values(extraFilters).filter(Boolean).length;
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    let result = events.filter((e) => {
+    const result = events.filter((e) => {
       if (typeFilter !== 'all' && e.type !== typeFilter) return false;
-      if (extraFilters.freeOnly && e.coverCharge !== 'Free') return false;
       if (q) {
         const haystack = [e.title, e.venue.name, e.venue.neighborhood, ...e.genres, e.description]
           .join(' ')
@@ -138,23 +131,15 @@ export default function DiscoverScreen() {
       return true;
     });
 
-    // tonightOnly from extra filters overrides dateFilter
-    if (extraFilters.tonightOnly) {
-      result = result.filter((e) => isToday(e.startsAt));
-    } else {
-      result = applyDateFilter(result, dateFilter);
-    }
-
-    return result;
-  }, [events, typeFilter, searchQuery, extraFilters, dateFilter]);
+    return applyDateFilter(result, dateFilter);
+  }, [events, typeFilter, searchQuery, dateFilter]);
 
   // ── Grouping ───────────────────────────────────────────────────────────────
 
   // Single-day view: show flat list, no per-day headers needed (one header at top)
   const isSingleDay = dateFilter.type === 'today' ||
     dateFilter.type === 'tomorrow' ||
-    dateFilter.type === 'date' ||
-    extraFilters.tonightOnly;
+    dateFilter.type === 'date';
 
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
 
@@ -227,23 +212,6 @@ export default function DiscoverScreen() {
               )}
             </TouchableOpacity>
 
-            {/* Extra filters button */}
-            <TouchableOpacity
-              style={[styles.iconButton, activeExtraCount > 0 && styles.iconButtonActive]}
-              onPress={() => setShowFilterModal(true)}
-              accessibilityLabel="Filter options"
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={activeExtraCount > 0 ? colors.gold : colors.text}
-              />
-              {activeExtraCount > 0 && (
-                <View style={styles.filterBadge}>
-                  <Text style={styles.filterBadgeText}>{activeExtraCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -287,7 +255,6 @@ export default function DiscoverScreen() {
                 active={active}
                 onPress={() => {
                   setDateFilter(chip.value);
-                  setExtraFilters((f) => ({ ...f, tonightOnly: false }));
                 }}
               />
             );
@@ -353,13 +320,12 @@ export default function DiscoverScreen() {
                 ? `No results for "${searchQuery}"`
                 : 'Try a different date or filter.'}
             </Text>
-            {(searchQuery || dateFilter.type !== 'all' || typeFilter !== 'all' || activeExtraCount > 0) && (
+            {(searchQuery || dateFilter.type !== 'all' || typeFilter !== 'all') && (
               <TouchableOpacity
                 onPress={() => {
                   setSearchQuery('');
                   setDateFilter({ type: 'all' });
                   setTypeFilter('all');
-                  setExtraFilters(INITIAL_EXTRA_FILTERS);
                 }}
                 style={styles.clearAllBtn}
               >
@@ -370,12 +336,6 @@ export default function DiscoverScreen() {
         )}
       </ScrollView>
 
-      <FilterModal
-        visible={showFilterModal}
-        filters={extraFilters}
-        onChange={setExtraFilters}
-        onClose={() => setShowFilterModal(false)}
-      />
       <CityPickerModal
         visible={showCityPicker}
         selectedCity={selectedCity}
