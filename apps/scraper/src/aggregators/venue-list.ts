@@ -15,6 +15,8 @@
  */
 
 import { createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import * as ical from 'node-ical';
 import * as cheerio from 'cheerio';
 import { ScrapeStrategy } from '@prisma/client';
@@ -565,10 +567,14 @@ async function tierPlaywrightHtml(ctx: ScrapeContext, page: Page | null): Promis
 
 // ─── Tier 3: Vision (Gemini Flash) ───────────────────────────────────────────
 
-const TIER3_COOLDOWN_MS  = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TIER3_COOLDOWN_MS   = 7 * 24 * 60 * 60 * 1000; // 7 days
 const TIER3_SUSPEND_AFTER = 3;                         // consecutive weekly failures
 const MAX_SCREENSHOT_BYTES = 1_000_000;                // 1 MB
-const MAX_SCREENSHOT_HEIGHT = 2000;                    // px — clip fallback
+
+const TIER3_SAVE_SCREENSHOTS = process.env.TIER3_SAVE_SCREENSHOTS === 'true';
+const TIER3_GEMINI_ENABLED   = process.env.TIER3_GEMINI_ENABLED   === 'true';
+
+const SCREENSHOTS_DIR = join(process.cwd(), 'apps/scraper/debug/screenshots');
 
 /**
  * Returns the reason Tier 3 should be skipped, or null if it should run.
@@ -594,32 +600,66 @@ function tier3SkipReason(state: Awaited<ReturnType<typeof loadScrapeState>>): st
   return null; // eligible for a live call
 }
 
-/** Captures a focused screenshot of the events/calendar section, or clips to max height. */
-async function captureEventScreenshot(page: Page): Promise<Buffer> {
-  // Try to find a calendar/events container by common keywords in id/class/aria-label
-  const clip = await page.evaluate(() => {
-    const keywords = ['event', 'calendar', 'schedule', 'upcoming', 'shows', 'gigs'];
-    const selector = '[id*="event" i], [class*="event" i], [id*="calendar" i], [class*="calendar" i], [id*="schedule" i], [class*="schedule" i], [aria-label*="event" i], [aria-label*="calendar" i]';
-    const el = document.querySelector(selector);
-    if (!el) return null;
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 100 || rect.height < 100) return null; // too small — likely not the calendar
-    return { x: rect.x, y: rect.y, width: rect.width, height: Math.min(rect.height, 2000) };
-  });
-
-  if (clip) {
-    return page.screenshot({ type: 'png', clip: { x: clip.x, y: clip.y, width: clip.width, height: clip.height } });
-  }
-
-  // Fallback: full page clipped to max height
-  return page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1280, height: MAX_SCREENSHOT_HEIGHT } });
+/** Slugifies a venue name for use as a filename. e.g. "Pete's Candy Store" → "petes_candy_store" */
+function venueSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 
-/** Resizes a PNG buffer by re-screenshotting at half dimensions if over size limit. */
+/**
+ * Captures a screenshot of the events/calendar section of the page.
+ *
+ * Priority:
+ *   1. venue.calendarSelector — manually specified via Chrome DevTools inspection
+ *   2. Auto-detect by common keyword patterns in id/class/aria-label
+ *   3. Full viewport fallback
+ *
+ * Uses Playwright's locator.screenshot() which scrolls the element into
+ * view automatically — no manual coordinate math needed.
+ */
+async function captureEventScreenshot(page: Page, venue: VenueTarget): Promise<Buffer> {
+  // ── 1. Manual selector (preferred) ───────────────────────────────────────────
+  if (venue.calendarSelector) {
+    const locator = page.locator(venue.calendarSelector).first();
+    if (await locator.count() > 0) {
+      return locator.screenshot({ type: 'png' });
+    }
+    console.warn(`  [${venue.name}] calendarSelector "${venue.calendarSelector}" not found — falling back`);
+  }
+
+  // ── 2. Auto-detect by keyword ─────────────────────────────────────────────────
+  const autoSelector = [
+    '[id*="event" i]', '[class*="event" i]',
+    '[id*="calendar" i]', '[class*="calendar" i]',
+    '[id*="schedule" i]', '[class*="schedule" i]',
+    '[id*="upcoming" i]', '[class*="upcoming" i]',
+    '[aria-label*="event" i]', '[aria-label*="calendar" i]',
+  ].join(', ');
+
+  const locator = page.locator(autoSelector).first();
+  if (await locator.count() > 0) {
+    const box = await locator.boundingBox();
+    if (box && box.width >= 100 && box.height >= 100) {
+      return locator.screenshot({ type: 'png' });
+    }
+  }
+
+  // ── 3. Full viewport fallback ─────────────────────────────────────────────────
+  return page.screenshot({ type: 'png', fullPage: false });
+}
+
+/** Saves a screenshot buffer to the debug folder, named by venue slug. */
+function saveScreenshot(buf: Buffer, venueName: string): void {
+  mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+  const filename = `${venueSlug(venueName)}.png`;
+  const filepath = join(SCREENSHOTS_DIR, filename);
+  writeFileSync(filepath, buf);
+  console.log(`  [${venueName}] Screenshot saved → apps/scraper/debug/screenshots/${filename}`);
+}
+
+/** Compresses a PNG by re-screenshotting at reduced size if over the size limit. */
 async function compressIfNeeded(buf: Buffer, page: Page): Promise<Buffer> {
   if (buf.byteLength <= MAX_SCREENSHOT_BYTES) return buf;
-  // Re-screenshot at half height
-  return page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1280, height: MAX_SCREENSHOT_HEIGHT / 2 } });
+  return page.screenshot({ type: 'png', fullPage: false, scale: 'css' });
 }
 
 /** Persists a Tier 3 invocation to the usage log. */
@@ -723,9 +763,13 @@ async function tierVision(ctx: ScrapeContext, page: Page | null): Promise<TierRe
 
   console.log(`  [${ctx.venue.name}] Tier 3 — calling Gemini Flash Vision (all free tiers returned 0 events)`);
 
+  // ── Layer 1: Screenshot ──────────────────────────────────────────────────────
+  // Wait for JS-heavy pages to finish rendering before screenshotting
+  await page.waitForTimeout(1000);
+
   let screenshot: Buffer;
   try {
-    const raw = await captureEventScreenshot(page);
+    const raw = await captureEventScreenshot(page, ctx.venue);
     screenshot = await compressIfNeeded(raw, page);
     ctx.screenshot = screenshot;
   } catch (err) {
@@ -733,6 +777,14 @@ async function tierVision(ctx: ScrapeContext, page: Page | null): Promise<TierRe
     console.warn(`  [${ctx.venue.name}] Tier 3 — screenshot failed: ${msg}`);
     await logTier3(ctx.venue, { succeeded: false, eventCount: 0, fromCache: false, error: msg });
     await saveTier3State(ctx.venue, { success: false, events: [] });
+    return { events: [], tier: ScrapeStrategy.VISION, confidence: 0 };
+  }
+
+  if (TIER3_SAVE_SCREENSHOTS) saveScreenshot(screenshot, ctx.venue.name);
+
+  // ── Layer 2: Gemini (toggle) ─────────────────────────────────────────────────
+  if (!TIER3_GEMINI_ENABLED) {
+    console.log(`  [${ctx.venue.name}] Tier 3 — Gemini disabled, screenshot captured for inspection`);
     return { events: [], tier: ScrapeStrategy.VISION, confidence: 0 };
   }
 
@@ -746,18 +798,32 @@ async function tierVision(ctx: ScrapeContext, page: Page | null): Promise<TierRe
   }
 
   // Convert GeminiEvent → ScrapedEvent
+  // Gemini returns date as YYYY-MM-DD and time as HH:MM (24h) or null.
   const tz = ctx.venue.timezone ?? DEFAULT_TIMEZONE;
   const scraped: ScrapedEvent[] = [];
 
   for (const ge of rawEvents) {
-    // Merge date + time into a full datetime string
-    const timeStr = ge.time ?? '';
-    const dateTimeStr = timeStr ? `${ge.date} ${timeStr}` : ge.date;
-    const parsed = new Date(dateTimeStr);
-    if (isNaN(parsed.getTime())) continue;
+    let startsAt: Date | null = null;
+
+    if (ge.time) {
+      // HH:MM → convert to am/pm string that mergeDateAndTime understands
+      const [hStr, mStr] = ge.time.split(':');
+      const h = parseInt(hStr ?? '0', 10);
+      const m = parseInt(mStr ?? '0', 10);
+      const ampm = h >= 12 ? 'pm' : 'am';
+      const h12 = h % 12 === 0 ? 12 : h % 12;
+      const timeStr = `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+      startsAt = mergeDateAndTime(ge.date, timeStr, tz);
+    } else {
+      // Date only — try a direct parse as local midnight, skip if unparseable
+      const d = new Date(`${ge.date}T00:00:00`);
+      if (!isNaN(d.getTime())) startsAt = floatingToUTC(d, tz);
+    }
+
+    if (!startsAt || isNaN(startsAt.getTime())) continue;
 
     const event = toScrapedEvent(
-      { title: ge.title, description: ge.description ?? undefined, startsAt: parsed.toISOString() },
+      { title: ge.title, description: ge.description ?? undefined, startsAt: startsAt.toISOString() },
       ctx.venue,
     );
     if (event) scraped.push(event);

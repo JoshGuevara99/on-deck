@@ -38,5 +38,8 @@ prisma/migrations/*/migration_lock.toml
 # Local notes — not for version control
 ideas.md
 
+# Tier 3 debug screenshots — temporary, never commit
+apps/scraper/debug/
+
 #claude
 CLAUDE.md

@@ -9,24 +9,50 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
+const today = new Date().toISOString().split('T')[0];
 
 const EXTRACTION_PROMPT =
-  'You are an event extraction assistant. Extract all upcoming events from this webpage screenshot. ' +
+  `Today is ${today}. You are an event extraction assistant. ` +
+  'Extract all upcoming participatory performance events from this webpage screenshot — ' +
+  'meaning events where members of the public can sign up to perform or take part. ' +
+  'This includes but is not limited to: open mics, open stages, jam sessions, improv jams, blues/jazz/acoustic jams, ' +
+  'songwriter circles, spoken word nights, poetry open mics, comedy open mics, signup shows, or any event ' +
+  'where attendees can perform regardless of what it is called. ' +
+  'IMPORTANT — dates must be real calendar dates in YYYY-MM-DD format. ' +
+  'If an event recurs on a schedule (e.g. "every Monday", "every other Tuesday", "first Sunday of the month"), ' +
+  `expand it into the next 4 upcoming occurrences starting from ${today}, each as a separate object with a real YYYY-MM-DD date. ` +
+  'Never use phrases like "every Monday" or "recurring" as the date value — always compute the actual dates. ' +
   'Return ONLY a valid JSON array. Each object must have: ' +
-  'title (string), date (string), time (string or null), description (string or null). ' +
-  'If no events are found, return an empty array []. ' +
+  'title (string), ' +
+  'date (string, YYYY-MM-DD), ' +
+  'time (string in HH:MM 24-hour format, or null if unknown), ' +
+  'description (string or null). ' +
+  `Only include events on or after ${today}. ` +
+  'If no qualifying events are found, return an empty array []. ' +
   'Do not include any explanation, markdown, or text outside the JSON array.';
 
 const RETRY_PROMPT =
-  'You are an event extraction assistant. The image shows a venue events or calendar page. ' +
-  'Your previous response could not be parsed as JSON. Try again. ' +
-  'Return ONLY a raw JSON array — no markdown fences, no explanation, no text before or after. ' +
-  'Each element: { "title": string, "date": string, "time": string|null, "description": string|null }. ' +
-  'If no events visible, return exactly: []';
+  `Today is ${today}. You are an event extraction assistant. The image shows a venue events or calendar page. ` +
+  'Extract all upcoming participatory performance events — meaning events where members of the public ' +
+  'can sign up to perform or take part, including but not limited to: open mics, open stages, jam sessions, ' +
+  'improv jams, blues/jazz/acoustic jams, songwriter circles, spoken word nights, poetry open mics, ' +
+  'comedy open mics, signup shows, or any similar event regardless of what it is called. ' +
+  `Only include events on or after ${today}. ` +
+  'CRITICAL — the "date" field must always be a real YYYY-MM-DD date. ' +
+  'If an event recurs (e.g. "every Wednesday", "weekly on Sundays"), expand it into ' +
+  `the next 4 upcoming occurrences from ${today}, one object per date. ` +
+  'Never write "every Monday" or any recurrence phrase as a date value. ' +
+  'Your previous response could not be parsed as valid JSON — it may have included markdown fences (```), ' +
+  'explanatory text, or characters outside the array. ' +
+  'Return ONLY a raw JSON array with zero text before or after it. ' +
+  'Each element must match exactly: ' +
+  '{ "title": string, "date": "YYYY-MM-DD", "time": "HH:MM in 24-hour format or null", "description": string or null }. ' +
+  'If no qualifying events are visible, return exactly: []';
 
 export interface GeminiEvent {
   title: string;
+
   date: string;
   time: string | null;
   description: string | null;
@@ -72,6 +98,7 @@ async function runGeminiCall(
     });
 
     const text = result.response.text().trim();
+    console.log(`  [Gemini raw response] ${text.slice(0, 300)}`);
 
     // Strip markdown fences if present (```json ... ```)
     const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
