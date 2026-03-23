@@ -589,8 +589,7 @@ const TIERS: TierDef[] = [
   { strategy: ScrapeStrategy.ICAL,            fn: tierIcal,           needsBrowser: false },
   { strategy: ScrapeStrategy.STATIC_HTML,     fn: tierStaticHtml,     needsBrowser: false },
   { strategy: ScrapeStrategy.PLAYWRIGHT_HTML, fn: tierPlaywrightHtml, needsBrowser: true  },
-  { strategy: ScrapeStrategy.LLM_TEXT,        fn: tierLlmText,        needsBrowser: false },
-  { strategy: ScrapeStrategy.VISION,          fn: tierVision,         needsBrowser: true  },
+  // Tier 3 (LLM_TEXT) and Tier 4 (VISION) not yet implemented
 ];
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────

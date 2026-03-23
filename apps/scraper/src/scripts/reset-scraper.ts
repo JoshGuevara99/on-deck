@@ -31,15 +31,17 @@ async function main() {
   console.log('=== On Deck — Reset Scraper ===\n');
 
   // ── 1. Count what we're about to delete ────────────────────────────────────
-  const [scrapedEventCount, stateCount] = await Promise.all([
+  const [scrapedEventCount, stateCount, runCount] = await Promise.all([
     prisma.event.count({ where: { sourceUrl: { not: null } } }),
     prisma.venueScrapeState.count(),
+    prisma.scraperRun.count(),
   ]);
 
-  console.log(`Scraped events:      ${scrapedEventCount}`);
+  console.log(`Scraped events:        ${scrapedEventCount}`);
   console.log(`VenueScrapeState rows: ${stateCount}`);
+  console.log(`ScraperRun rows:       ${runCount}`);
 
-  if (scrapedEventCount === 0 && stateCount === 0) {
+  if (scrapedEventCount === 0 && stateCount === 0 && runCount === 0) {
     console.log('\nNothing to reset — already clean.');
     return;
   }
@@ -64,11 +66,15 @@ async function main() {
   // ── 4. Reset all per-venue scrape state ─────────────────────────────────────
   const { count: deletedStates } = await prisma.venueScrapeState.deleteMany({});
 
-  // ── 5. Summary ──────────────────────────────────────────────────────────────
+  // ── 5. Clear scraper run history (resets cooldowns) ─────────────────────────
+  const { count: deletedRuns } = await prisma.scraperRun.deleteMany({});
+
+  // ── 6. Summary ──────────────────────────────────────────────────────────────
   console.log('\n✓ Reset complete:');
   console.log(`  Deleted events:           ${deletedEvents}`);
   console.log(`  Deleted orphaned venues:  ${deletedVenues}`);
   console.log(`  Cleared scrape states:    ${deletedStates}`);
+  console.log(`  Cleared scraper runs:     ${deletedRuns}`);
   console.log('\nThe scraper will re-discover working tiers from scratch on next run.');
 }
 
