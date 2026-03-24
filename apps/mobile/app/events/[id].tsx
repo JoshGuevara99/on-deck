@@ -276,7 +276,7 @@ export default function EventDetailScreen() {
               activeOpacity={0.85}
             >
               <Ionicons name={rsvped ? 'checkmark-circle' : 'add-circle-outline'} size={18} color="#fff" />
-              <Text style={styles.rsvpBtnText}>{rsvped ? "I'm Going" : "I'm Going"}</Text>
+              <Text style={styles.rsvpBtnText}>{rsvped ? 'Going' : 'RSVP'}</Text>
             </TouchableOpacity>
 
             {/* Sign up to perform */}
