@@ -2,6 +2,8 @@
   "expo": {
     "name": "On Deck",
     "slug": "on-deck",
+    "owner": "ondeck",
+    "description": "Discover and sign up for open mics, jam sessions, comedy nights, and other creative performance events near you.",
     "version": "1.0.0",
     "scheme": "ondeck",
     "orientation": "portrait",
@@ -10,6 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ondeck.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app uses your location to show nearby events.",
         "NSLocationAlwaysUsageDescription": "This app uses your location to show nearby events."
@@ -17,6 +20,7 @@
     },
     "android": {
       "package": "com.ondeck.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
