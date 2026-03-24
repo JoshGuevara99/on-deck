@@ -19,7 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { EventTypeBadge } from '../../components/EventTypeBadge';
 import { SignUpModal } from '../../components/SignUpModal';
 import { EditEventModal } from '../../components/EditEventModal';
-import { formatTime } from '../../utils/date';
+import { formatDayLabel, formatTime } from '../../utils/date';
 import { apiClient } from '../../lib/api';
 import { useAttending } from '../../context/AttendingContext';
 import type { MockEvent } from '../../constants/mock-data';
@@ -175,18 +175,17 @@ export default function EventDetailScreen() {
         )}
 
         <View style={styles.body}>
-          {/* Type badge + time */}
-          <View style={styles.metaRow}>
-            <EventTypeBadge type={event.type} />
-            <Text style={styles.time}>
-              {event.startsAt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              {' · '}{formatTime(event.startsAt)}
-              {event.endsAt ? ` – ${formatTime(event.endsAt)}` : ''}
-            </Text>
-          </View>
+          {/* Type badge */}
+          <EventTypeBadge type={event.type} />
 
           {/* Title */}
           <Text style={styles.title}>{event.title}</Text>
+
+          {/* Date + time */}
+          <Text style={styles.time}>
+            {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
+            {event.endsAt ? ` – ${formatTime(event.endsAt)}` : ''}
+          </Text>
 
           {/* Venue */}
           <View style={styles.venueRow}>
@@ -542,7 +541,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
 
     body: { padding: 20, gap: 16 },
 
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
     time: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
 
     title: {
