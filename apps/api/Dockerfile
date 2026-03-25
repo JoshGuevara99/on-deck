@@ -24,6 +24,8 @@ COPY apps/api/tsconfig.json ./apps/api/
 COPY tsconfig.base.json ./
 COPY prisma ./prisma
 
+RUN pnpm exec prisma generate
+
 RUN pnpm --filter @on-deck/api run build
 
 # ── Stage 3: production runner ────────────────────────────────────────────────
