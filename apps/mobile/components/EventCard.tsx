@@ -85,7 +85,7 @@ export function EventCard({ event }: Props) {
           <View style={styles.badgeRow}>
             <EventTypeBadge type={event.type} />
             {event.genres.map((g) => {
-              const known = ['Comedy', 'Music', 'Poetry'];
+              const known = ['Comedy', 'Music', 'Poetry', 'Jam Session'];
               if (known.includes(g)) {
                 return <GenreBadge key={g} genre={g as EventGenre} />;
               }

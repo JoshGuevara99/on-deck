@@ -7,7 +7,9 @@ import {
   wasRecentlyScraped,
   wasRecentlyAggregated,
   disconnect,
+  prisma,
 } from './ingest';
+import { inferGenres } from './extract-utils';
 import { SCRAPE_CITIES, type CityTarget } from './cities';
 import { scrapeEventbrite } from './aggregators/eventbrite';
 import { scrapeVenueList } from './aggregators/venue-list';
@@ -213,7 +215,22 @@ async function main() {
     totals.cooledDown += r.cooledDown;
   }
 
-  console.log('[3/3] Done.');
+  // ── Step 4: Reclassify genres for all stored events ──────────────────────
+  console.log('\n[4/4] Reclassifying genres...');
+  const allEvents = await prisma.event.findMany({
+    select: { id: true, title: true, description: true, genres: true, venue: { select: { name: true } } },
+  });
+  let genresUpdated = 0;
+  for (const ev of allEvents) {
+    const inferred = inferGenres(ev.title, ev.description ?? '', ev.venue.name);
+    if ([...ev.genres].sort().join(',') !== [...inferred].sort().join(',')) {
+      await prisma.event.update({ where: { id: ev.id }, data: { genres: inferred } });
+      genresUpdated++;
+    }
+  }
+  console.log(`  Updated genres on ${genresUpdated} events`);
+
+  console.log('\nDone.');
   console.log(`  Cities processed:   ${totals.cities}`);
   console.log(`  Cities on cooldown: ${totals.cooledDown}`);
   console.log(`  Events inserted:    ${totals.inserted}`);
