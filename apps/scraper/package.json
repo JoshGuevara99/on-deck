@@ -8,6 +8,7 @@
     "scrape:eb":      "cd ../.. && tsx apps/scraper/src/index.ts --source eventbrite",
     "scrape:all":     "cd ../.. && tsx apps/scraper/src/index.ts --source all",
     "reset-scraper":  "cd ../.. && tsx apps/scraper/src/scripts/reset-scraper.ts",
+    "reclassify-genres": "cd ../.. && tsx apps/scraper/src/scripts/reclassify-genres.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
