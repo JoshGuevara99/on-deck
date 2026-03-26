@@ -77,11 +77,12 @@ export function EventCard({ event }: Props) {
       )}
 
       <View style={styles.row}>
-        {/* Left accent bar */}
+        {/* Left accent bar — spans full card height */}
         <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
 
-        <View style={styles.content}>
-          {/* Badge row: type + genre badges */}
+        {/* Right column: badge row spans full width, then content + RSVP side by side */}
+        <View style={styles.rightColumn}>
+          {/* Badge row: full width so badges have room to stay on one line */}
           <View style={styles.badgeRow}>
             <EventTypeBadge type={event.type} />
             {event.genres.map((g) => {
@@ -97,73 +98,77 @@ export function EventCard({ event }: Props) {
             })}
           </View>
 
-          {/* Title */}
-          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+          <View style={styles.contentRow}>
+            <View style={styles.content}>
+              {/* Title */}
+              <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
 
-          {/* Date + time */}
-          <Text style={styles.time}>
-            {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
-          </Text>
-
-          {/* Venue */}
-          <View style={styles.venueRow}>
-            <Ionicons name="location-sharp" size={13} color={accentColor} />
-            <Text style={styles.venueName} numberOfLines={1}>{event.venue.name}</Text>
-            {event.venue.neighborhood ? (
-              <>
-                <Text style={styles.separator}>·</Text>
-                <Text style={styles.neighborhood} numberOfLines={1}>{event.venue.neighborhood}</Text>
-              </>
-            ) : null}
-          </View>
-
-          {/* Footer chips */}
-          <View style={styles.footer}>
-            {event.isRecurring && event.recurringDescription && (
-              <FooterChip icon="repeat" label={event.recurringDescription} color={colors.textMuted} />
-            )}
-            {event.slotDuration && (
-              <FooterChip icon="time-outline" label={event.slotDuration} color={colors.textMuted} />
-            )}
-            {event.coverCharge && (
-              <FooterChip
-                icon={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
-                label={event.coverCharge}
-                color={colors.textMuted}
-              />
-            )}
-            <View style={styles.attendeeChip}>
-              <Ionicons name="people-outline" size={11} color={colors.textMuted} />
-              <Text style={[styles.footerChipText, { color: colors.textMuted }]}>
-                {attendeeCount + event.signupCount > 0
-                  ? `${attendeeCount + event.signupCount} going`
-                  : 'Be first'}
+              {/* Date + time */}
+              <Text style={styles.time}>
+                {formatDayLabel(event.startsAt)} · {formatTime(event.startsAt)}
               </Text>
-            </View>
-            {event.sourceUrl && (
-              <TouchableOpacity
-                onPress={(e) => { e.stopPropagation?.(); Linking.openURL(event.sourceUrl!); }}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Text style={[styles.footerChipText, { color: colors.textMuted, textDecorationLine: 'underline' }]}>
-                  {new URL(event.sourceUrl).hostname.replace(/^www\./, '')}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
 
-        {/* RSVP button */}
-        <View style={styles.rsvpColumn}>
-          <TouchableOpacity
-            style={[styles.rsvpBtn, rsvped ? styles.rsvpBtnGoing : styles.rsvpBtnDefault]}
-            onPress={isSignedIn ? handleRsvp : () => router.push('/(auth)/sign-in')}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name={rsvped ? 'checkmark' : 'add'} size={22} color="#fff" />
-            <Text style={styles.rsvpBtnLabel}>{rsvped ? 'Going' : 'RSVP'}</Text>
-          </TouchableOpacity>
+              {/* Venue */}
+              <View style={styles.venueRow}>
+                <Ionicons name="location-sharp" size={13} color={accentColor} />
+                <Text style={styles.venueName} numberOfLines={1}>{event.venue.name}</Text>
+                {event.venue.neighborhood ? (
+                  <>
+                    <Text style={styles.separator}>·</Text>
+                    <Text style={styles.neighborhood} numberOfLines={1}>{event.venue.neighborhood}</Text>
+                  </>
+                ) : null}
+              </View>
+
+              {/* Footer chips */}
+              <View style={styles.footer}>
+                {event.isRecurring && event.recurringDescription && (
+                  <FooterChip icon="repeat" label={event.recurringDescription} color={colors.textMuted} />
+                )}
+                {event.slotDuration && (
+                  <FooterChip icon="time-outline" label={event.slotDuration} color={colors.textMuted} />
+                )}
+                {event.coverCharge && (
+                  <FooterChip
+                    icon={event.coverCharge === 'Free' ? 'gift-outline' : 'cash-outline'}
+                    label={event.coverCharge}
+                    color={colors.textMuted}
+                  />
+                )}
+                <View style={styles.attendeeChip}>
+                  <Ionicons name="people-outline" size={11} color={colors.textMuted} />
+                  <Text style={[styles.footerChipText, { color: colors.textMuted }]}>
+                    {attendeeCount + event.signupCount > 0
+                      ? `${attendeeCount + event.signupCount} going`
+                      : 'Be first'}
+                  </Text>
+                </View>
+                {event.sourceUrl && (
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation?.(); Linking.openURL(event.sourceUrl!); }}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Text style={[styles.footerChipText, { color: colors.textMuted, textDecorationLine: 'underline' }]}>
+                      {new URL(event.sourceUrl).hostname.replace(/^www\./, '')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* RSVP button */}
+            <View style={styles.rsvpColumn}>
+              <TouchableOpacity
+                style={[styles.rsvpBtn, rsvped ? styles.rsvpBtnGoing : styles.rsvpBtnDefault]}
+                onPress={isSignedIn ? handleRsvp : () => router.push('/(auth)/sign-in')}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name={rsvped ? 'checkmark' : 'add'} size={22} color="#fff" />
+                <Text style={styles.rsvpBtnLabel}>{rsvped ? 'Going' : 'RSVP'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -207,13 +212,22 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       flexDirection: 'row',
     },
     accentBar: { width: 4 },
-    content: { flex: 1, padding: 14, gap: 8 },
+    rightColumn: {
+      flex: 1,
+      flexDirection: 'column',
+    },
     badgeRow: {
       flexDirection: 'row',
       alignItems: 'center',
       flexWrap: 'wrap',
-      gap: 5,
+      gap: 4,
+      paddingHorizontal: 14,
+      paddingTop: 12,
     },
+    contentRow: {
+      flexDirection: 'row',
+    },
+    content: { flex: 1, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 14, gap: 8 },
     time: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
     title: {
       fontSize: 19,
