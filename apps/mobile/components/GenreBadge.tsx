@@ -3,7 +3,7 @@ import type { EventGenre } from '@on-deck/shared';
 
 const GENRE_COLORS: Record<EventGenre, string> = {
   Comedy:        '#ec4899',  // pink/rose
-  Music:         '#6366f1',  // indigo
+  Music:         '#38bdf8',  // sky blue
   Poetry:        '#a855f7',  // purple
   'Jam Session': '#E8553E',  // terracotta (matches theme jam color)
 };
