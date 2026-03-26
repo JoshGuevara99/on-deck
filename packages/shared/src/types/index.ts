@@ -9,7 +9,7 @@ export type EventType =
   | 'WORKSHOP'
   | 'OPEN_STUDIO';
 
-export type EventGenre = 'Comedy' | 'Music' | 'Poetry';
+export type EventGenre = 'Comedy' | 'Music' | 'Poetry' | 'Jam Session';
 
 export type SignUpMethod = 'DOOR' | 'ONLINE' | 'APP';
 

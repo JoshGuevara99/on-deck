@@ -29,12 +29,17 @@ import {
   endOfMonth,
   formatSectionHeader,
 } from '../../utils/date';
-import type { EventType } from '@on-deck/shared';
+import type { EventType, EventGenre } from '@on-deck/shared';
 import type { MockEvent } from '../../constants/mock-data';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type EventTypeFilter = 'all' | EventType;
+
+type FilterChipDef =
+  | { kind: 'all';   label: string }
+  | { kind: 'type';  label: string; value: EventType }
+  | { kind: 'genre'; label: string; value: EventGenre };
 
 type DateFilter =
   | { type: 'all' }
@@ -52,14 +57,15 @@ const DATE_CHIPS: { label: string; value: DateFilter }[] = [
   { label: 'This Month', value: { type: 'month' } },
 ];
 
-const TYPE_FILTERS: { label: string; value: EventTypeFilter }[] = [
-  { label: 'All',         value: 'all' },
-  { label: 'Open Mic',    value: 'OPEN_MIC' },
-  { label: 'Jam Session', value: 'JAM_SESSION' },
-  { label: 'Comedy',      value: 'COMEDY_NIGHT' },
-  { label: 'Poetry',      value: 'POETRY_SLAM' },
-  { label: 'Workshop',    value: 'WORKSHOP' },
-  { label: 'Open Studio', value: 'OPEN_STUDIO' },
+const EVENT_FILTERS: FilterChipDef[] = [
+  { kind: 'all',   label: 'All' },
+  { kind: 'type',  label: 'Open Mic',    value: 'OPEN_MIC' },
+  { kind: 'genre', label: 'Music',       value: 'Music' },
+  { kind: 'genre', label: 'Comedy',      value: 'Comedy' },
+  { kind: 'genre', label: 'Poetry',      value: 'Poetry' },
+  { kind: 'genre', label: 'Jam Session', value: 'Jam Session' },
+  { kind: 'type',  label: 'Workshop',    value: 'WORKSHOP' },
+  { kind: 'type',  label: 'Open Studio', value: 'OPEN_STUDIO' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,7 +115,7 @@ export default function DiscoverScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  const [typeFilter, setTypeFilter] = useState<EventTypeFilter>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterChipDef>(EVENT_FILTERS[0]!);
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'all' });
   const [searchQuery, setSearchQuery] = useState('');
   const [showCityPicker, setShowCityPicker] = useState(false);
@@ -121,7 +127,8 @@ export default function DiscoverScreen() {
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const result = events.filter((e) => {
-      if (typeFilter !== 'all' && e.type !== typeFilter) return false;
+      if (activeFilter.kind === 'type' && e.type !== activeFilter.value) return false;
+      if (activeFilter.kind === 'genre' && !e.genres.includes(activeFilter.value)) return false;
       if (q) {
         const haystack = [e.title, e.venue.name, e.venue.neighborhood, ...e.genres, e.description]
           .join(' ')
@@ -132,7 +139,7 @@ export default function DiscoverScreen() {
     });
 
     return applyDateFilter(result, dateFilter);
-  }, [events, typeFilter, searchQuery, dateFilter]);
+  }, [events, activeFilter, searchQuery, dateFilter]);
 
   // ── Grouping ───────────────────────────────────────────────────────────────
 
@@ -277,14 +284,19 @@ export default function DiscoverScreen() {
           style={styles.filterScroll}
           contentContainerStyle={styles.filterContent}
         >
-          {TYPE_FILTERS.map((f) => (
-            <FilterChip
-              key={f.value}
-              label={f.label}
-              active={typeFilter === f.value}
-              onPress={() => setTypeFilter(f.value)}
-            />
-          ))}
+          {EVENT_FILTERS.map((f) => {
+            const isActive = f.kind === 'all'
+              ? activeFilter.kind === 'all'
+              : f.kind === activeFilter.kind && f.value === (activeFilter as any).value;
+            return (
+              <FilterChip
+                key={f.label}
+                label={f.label}
+                active={isActive}
+                onPress={() => setActiveFilter(f)}
+              />
+            );
+          })}
         </ScrollView>
 
         {/* ── Events ──────────────────────────────────────────── */}
@@ -320,12 +332,12 @@ export default function DiscoverScreen() {
                 ? `No results for "${searchQuery}"`
                 : 'Try a different date or filter.'}
             </Text>
-            {(searchQuery || dateFilter.type !== 'all' || typeFilter !== 'all') && (
+            {(searchQuery || dateFilter.type !== 'all' || activeFilter.kind !== 'all') && (
               <TouchableOpacity
                 onPress={() => {
                   setSearchQuery('');
                   setDateFilter({ type: 'all' });
-                  setTypeFilter('all');
+                  setActiveFilter(EVENT_FILTERS[0]!);
                 }}
                 style={styles.clearAllBtn}
               >

@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../../context/ThemeContext';
 import { EventTypeBadge } from '../../components/EventTypeBadge';
+import { GenreBadge } from '../../components/GenreBadge';
+import type { EventGenre } from '@on-deck/shared';
 import { SignUpModal } from '../../components/SignUpModal';
 import { EditEventModal } from '../../components/EditEventModal';
 import { formatDayLabel, formatTime } from '../../utils/date';
@@ -175,8 +177,21 @@ export default function EventDetailScreen() {
         )}
 
         <View style={styles.body}>
-          {/* Type badge */}
-          <EventTypeBadge type={event.type} />
+          {/* Type + genre badges */}
+          <View style={styles.badgeRow}>
+            <EventTypeBadge type={event.type} />
+            {event.genres.map((g) => {
+              const known: EventGenre[] = ['Comedy', 'Music', 'Poetry', 'Jam Session'];
+              if (known.includes(g as EventGenre)) {
+                return <GenreBadge key={g} genre={g as EventGenre} />;
+              }
+              return (
+                <View key={g} style={[styles.genreTag, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.genreText, { color: colors.textSecondary }]}>{g}</Text>
+                </View>
+              );
+            })}
+          </View>
 
           {/* Title */}
           <Text style={styles.title}>{event.title}</Text>
@@ -201,16 +216,6 @@ export default function EventDetailScreen() {
             <Text style={styles.description}>{event.description}</Text>
           ) : null}
 
-          {/* Genre tags */}
-          {event.genres.length > 0 && (
-            <View style={styles.genreRow}>
-              {event.genres.map((g) => (
-                <View key={g} style={[styles.genreTag, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Text style={[styles.genreText, { color: colors.textSecondary }]}>{g}</Text>
-                </View>
-              ))}
-            </View>
-          )}
 
           {/* Detail rows */}
           <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -540,6 +545,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
 
     body: { padding: 20, gap: 16 },
+    badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
 
     time: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
 

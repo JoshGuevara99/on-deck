@@ -2,9 +2,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import type { EventGenre } from '@on-deck/shared';
 
 const GENRE_COLORS: Record<EventGenre, string> = {
-  Comedy: '#f59e0b',  // amber
-  Music:  '#6366f1',  // indigo
-  Poetry: '#a855f7',  // purple
+  Comedy:        '#ec4899',  // pink/rose
+  Music:         '#6366f1',  // indigo
+  Poetry:        '#a855f7',  // purple
+  'Jam Session': '#E8553E',  // terracotta (matches theme jam color)
 };
 
 export function GenreBadge({ genre }: { genre: EventGenre }) {

@@ -104,14 +104,17 @@ const DAYS_AHEAD = 30;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function inferEventType(title: string, description: string): AggregatedEvent['type'] {
-  const text = `${title} ${description}`.toLowerCase();
-  if (/jam session|jam night|open jam|blues jam|jazz jam/.test(text)) return 'JAM_SESSION';
-  if (/comedy|stand-?up|standup/.test(text)) return 'COMEDY_NIGHT';
-  if (/poetry|slam|spoken word/.test(text)) return 'POETRY_SLAM';
-  if (/workshop/.test(text)) return 'WORKSHOP';
-  if (/open studio/.test(text)) return 'OPEN_STUDIO';
-  if (/open stage/.test(text)) return 'OPEN_STAGE';
+function inferEventType(title: string): AggregatedEvent['type'] {
+  const t = title.toLowerCase();
+  if (/open.?mic|open mike/.test(t)) return 'OPEN_MIC';
+  if (/open stage/.test(t)) return 'OPEN_STAGE';
+  if (/open studio/.test(t)) return 'OPEN_STUDIO';
+  if (/jam session|jam night|open jam|blues jam|jazz jam/.test(t)) return 'JAM_SESSION';
+  if (/comedy night|comedy show|stand.?up night|standup night/.test(t)) return 'COMEDY_NIGHT';
+  if (/poetry slam|spoken word slam|open slam|slam night/.test(t)) return 'POETRY_SLAM';
+  if (/workshop/.test(t)) return 'WORKSHOP';
+  if (/comedy/.test(t)) return 'COMEDY_NIGHT';
+  if (/\bslam\b/.test(t)) return 'POETRY_SLAM';
   return 'OPEN_MIC';
 }
 
@@ -144,7 +147,7 @@ function mapToAggregatedEvent(event: EBEvent): AggregatedEvent | null {
     description,
     startsAt: event.start.utc,
     endsAt: event.end?.utc ?? null,
-    type: inferEventType(title, description ?? ''),
+    type: inferEventType(title),
     coverCharge: parseCoverCharge(event),
     signUpMethod: 'DOOR', // open mics are typically sign-up at the door
     isRecurring: false, // Eventbrite doesn't expose recurrence cleanly

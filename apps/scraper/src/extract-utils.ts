@@ -104,14 +104,25 @@ export function mergeDateAndTime(dateStr: string, timeStr: string, tz: string = 
 
 // ─── Event classification ─────────────────────────────────────────────────────
 
-export function inferEventType(title: string, description: string): ScrapedEvent['type'] {
-  const text = `${title} ${description}`.toLowerCase();
-  if (/jam session|jam night|open jam|blues jam|jazz jam/.test(text)) return 'JAM_SESSION';
-  if (/comedy|stand-?up|standup/.test(text)) return 'COMEDY_NIGHT';
-  if (/poetry|slam|spoken word/.test(text)) return 'POETRY_SLAM';
-  if (/workshop/.test(text)) return 'WORKSHOP';
-  if (/open studio/.test(text)) return 'OPEN_STUDIO';
-  if (/open stage/.test(text)) return 'OPEN_STAGE';
+/**
+ * Infers the primary event type from the title only.
+ * We intentionally ignore description here — descriptions often list many
+ * genres a variety open mic accepts ("singers, comedians, poets...") which
+ * would incorrectly promote a general OPEN_MIC to COMEDY_NIGHT or POETRY_SLAM.
+ * Genre badges (inferGenres) handle the nuance from description.
+ */
+export function inferEventType(title: string): ScrapedEvent['type'] {
+  const t = title.toLowerCase();
+  // "open mic" in the title is definitive — genre badges handle comedy/music/poetry
+  if (/open.?mic|open mike/.test(t)) return 'OPEN_MIC';
+  if (/open stage/.test(t)) return 'OPEN_STAGE';
+  if (/open studio/.test(t)) return 'OPEN_STUDIO';
+  if (/jam session|jam night|open jam|blues jam|jazz jam/.test(t)) return 'JAM_SESSION';
+  if (/comedy night|comedy show|stand.?up night|standup night/.test(t)) return 'COMEDY_NIGHT';
+  if (/poetry slam|spoken word slam|open slam|slam night/.test(t)) return 'POETRY_SLAM';
+  if (/workshop/.test(t)) return 'WORKSHOP';
+  if (/comedy/.test(t)) return 'COMEDY_NIGHT';
+  if (/\bslam\b/.test(t)) return 'POETRY_SLAM';
   return 'OPEN_MIC';
 }
 
@@ -127,21 +138,31 @@ export function inferGenres(title: string, description: string, venueName: strin
   const venueText = venueName.toLowerCase();
   const genres: string[] = [];
 
+  // Comedy: any comedy/improv keyword in title+description, OR venue name has "comedy"
   if (
-    /\b(comedy|comedian|stand.?up|standup|improv|comic)\b/.test(eventText) ||
+    /\b(comedy|comedian|comics?|stand.?up|standup|improv)\b/.test(eventText) ||
     /\bcomedy\b/.test(venueText)
   ) {
     genres.push('Comedy');
   }
 
-  if (/\b(poetry|poem|poet|spoken.?word|slam)\b/.test(eventText)) {
+  // Poetry: explicit poetry/spoken-word signals
+  if (/\b(poetry|poems?|poets?|spoken.?word|slam|verse|lyric)\b/.test(eventText)) {
     genres.push('Poetry');
   }
 
+  // Music: instrument names, genre names, or performer roles in title+description
   if (
-    /\b(music|acoustic|jazz|blues|songwriter|sing|song|band|guitar|piano|bass|drum|hip.?hop|folk|country|rock|reggae|funk|soul|r&b|rnb|bluegrass|instrument|open.?jam|jam.?session)\b/.test(eventText)
+    /\b(music|musician|acoustic|jazz|blues|songwriter|singers?|singing|songs?|bands?|guitar|piano|bass|drums?|hip.?hop|folk|country|rock|reggae|funk|soul|r&b|rnb|bluegrass|instruments?|open.?jam|jam.?session|vocalists?)\b/.test(
+      eventText,
+    )
   ) {
     genres.push('Music');
+  }
+
+  // Jam Session: explicit jam session language in title+description
+  if (/\b(jam.?session|jam.?night|open.?jam|blues.?jam|jazz.?jam|acoustic.?jam|community.?jam)\b/.test(eventText)) {
+    genres.push('Jam Session');
   }
 
   return genres;
@@ -199,7 +220,7 @@ export function toScrapedEvent(fields: RawEventFields, venue: VenueTarget): Scra
     description: fields.description,
     startsAt: startsAt.toISOString(),
     endsAt: fields.endsAt,
-    type: inferEventType(fields.title, fields.description ?? ''),
+    type: inferEventType(fields.title),
     genres: inferGenres(fields.title, fields.description ?? '', fields.venueName ?? venue.name),
     backline: [],
     signUpMethod: 'DOOR',
