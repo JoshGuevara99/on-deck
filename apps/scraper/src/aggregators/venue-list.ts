@@ -24,7 +24,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import type { ScrapedEvent } from '../scrape';
 import type { VenueTarget } from '../venues/index';
 import { prisma } from '../ingest';
-import { toScrapedEvent, isFuture, isWithinLookahead, isMidnight, floatingToUTC, extractTimeFromText, mergeDateAndTime, DEFAULT_TIMEZONE } from '../extract-utils';
+import { toScrapedEvent, inferGenres, isFuture, isWithinLookahead, isMidnight, floatingToUTC, extractTimeFromText, mergeDateAndTime, DEFAULT_TIMEZONE } from '../extract-utils';
 import { callGeminiVision } from '../llm/gemini';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -826,7 +826,15 @@ async function tierVision(ctx: ScrapeContext, page: Page | null): Promise<TierRe
       { title: ge.title, description: ge.description ?? undefined, startsAt: startsAt.toISOString() },
       ctx.venue,
     );
-    if (event) scraped.push(event);
+    if (event) {
+      // Merge keyword-inferred genres with Gemini's genre signal.
+      // Gemini sees the full screenshot context so trust it when it identifies a genre
+      // that keyword matching missed.
+      if (ge.genre && !event.genres.includes(ge.genre)) {
+        event.genres = [...event.genres, ge.genre];
+      }
+      scraped.push(event);
+    }
   }
 
   const succeeded = scraped.length > 0;

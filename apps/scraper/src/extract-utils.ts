@@ -116,6 +116,38 @@ export function inferEventType(title: string, description: string): ScrapedEvent
 }
 
 /**
+ * Infers genre tags from event title, description, and venue name.
+ * Returns a subset of ["Comedy", "Music", "Poetry"] — or [] if nothing is clear.
+ *
+ * Venue name is a strong signal for Comedy (e.g. "Eastville Comedy Club").
+ * Music is inferred from explicit keywords only — venue name alone is too broad.
+ */
+export function inferGenres(title: string, description: string, venueName: string): string[] {
+  const eventText = `${title} ${description}`.toLowerCase();
+  const venueText = venueName.toLowerCase();
+  const genres: string[] = [];
+
+  if (
+    /\b(comedy|comedian|stand.?up|standup|improv|comic)\b/.test(eventText) ||
+    /\bcomedy\b/.test(venueText)
+  ) {
+    genres.push('Comedy');
+  }
+
+  if (/\b(poetry|poem|poet|spoken.?word|slam)\b/.test(eventText)) {
+    genres.push('Poetry');
+  }
+
+  if (
+    /\b(music|acoustic|jazz|blues|songwriter|sing|song|band|guitar|piano|bass|drum|hip.?hop|folk|country|rock|reggae|funk|soul|r&b|rnb|bluegrass|instrument|open.?jam|jam.?session)\b/.test(eventText)
+  ) {
+    genres.push('Music');
+  }
+
+  return genres;
+}
+
+/**
  * Returns true if the title or description suggests a participatory event
  * where audience members can sign up to perform.
  */
@@ -168,7 +200,7 @@ export function toScrapedEvent(fields: RawEventFields, venue: VenueTarget): Scra
     startsAt: startsAt.toISOString(),
     endsAt: fields.endsAt,
     type: inferEventType(fields.title, fields.description ?? ''),
-    genres: [],
+    genres: inferGenres(fields.title, fields.description ?? '', fields.venueName ?? venue.name),
     backline: [],
     signUpMethod: 'DOOR',
     isRecurring: fields.isRecurring ?? false,

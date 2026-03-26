@@ -79,6 +79,7 @@ const UpdateEventSchema = z.object({
 
 const ListQuerySchema = z.object({
   type: z.string().optional(),
+  genre: z.string().optional(),
   city: z.string().optional(),
   submittedBy: z.string().optional(),
   tonight: z

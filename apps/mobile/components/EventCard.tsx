@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTheme } from '../context/ThemeContext';
 import { EventTypeBadge } from './EventTypeBadge';
+import { GenreBadge } from './GenreBadge';
+import type { EventGenre } from '@on-deck/shared';
 import { formatDayLabel, formatTime } from '../utils/date';
 import { apiClient } from '../lib/api';
 import { useAttending } from '../context/AttendingContext';
@@ -79,19 +81,20 @@ export function EventCard({ event }: Props) {
         <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
 
         <View style={styles.content}>
-          {/* Badge row: type + genres inline */}
+          {/* Badge row: type + genre badges */}
           <View style={styles.badgeRow}>
             <EventTypeBadge type={event.type} />
-            {event.genres.slice(0, 3).map((g) => (
-              <View key={g} style={styles.genreTag}>
-                <Text style={styles.genreText}>{g}</Text>
-              </View>
-            ))}
-            {event.genres.length > 3 && (
-              <View style={[styles.genreTag, { borderStyle: 'dashed' }]}>
-                <Text style={styles.genreText}>+{event.genres.length - 3}</Text>
-              </View>
-            )}
+            {event.genres.map((g) => {
+              const known = ['Comedy', 'Music', 'Poetry'];
+              if (known.includes(g)) {
+                return <GenreBadge key={g} genre={g as EventGenre} />;
+              }
+              return (
+                <View key={g} style={styles.genreTag}>
+                  <Text style={styles.genreText}>{g}</Text>
+                </View>
+              );
+            })}
           </View>
 
           {/* Title */}

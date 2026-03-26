@@ -59,6 +59,10 @@ export async function listEvents(filters: EventFilters = {}) {
     where.hostId = filters.hostId;
   }
 
+  if (filters.genre) {
+    where.genres = { has: filters.genre };
+  }
+
   if (filters.q) {
     const q = filters.q.trim();
     where.OR = [

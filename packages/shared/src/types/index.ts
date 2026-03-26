@@ -9,6 +9,8 @@ export type EventType =
   | 'WORKSHOP'
   | 'OPEN_STUDIO';
 
+export type EventGenre = 'Comedy' | 'Music' | 'Poetry';
+
 export type SignUpMethod = 'DOOR' | 'ONLINE' | 'APP';
 
 export type PerformerType = 'MUSICIAN' | 'COMEDIAN' | 'POET' | 'STORYTELLER' | 'OTHER';
@@ -220,6 +222,8 @@ export interface UpdateSignupInput {
 export interface EventFilters {
   /** Comma-separated list of EventType values */
   type?: string;
+  /** Filter by genre: "Comedy", "Music", or "Poetry" */
+  genre?: string;
   city?: string;
   /** Only events starting today */
   tonight?: boolean;

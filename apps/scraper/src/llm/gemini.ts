@@ -27,7 +27,8 @@ const EXTRACTION_PROMPT =
   'title (string), ' +
   'date (string, YYYY-MM-DD), ' +
   'time (string in HH:MM 24-hour format, or null if unknown), ' +
-  'description (string or null). ' +
+  'description (string or null), ' +
+  'genre (one of: "Comedy", "Music", "Poetry", or null — based on the type of performance). ' +
   `Only include events on or after ${today}. ` +
   'If no qualifying events are found, return an empty array []. ' +
   'Do not include any explanation, markdown, or text outside the JSON array.';
@@ -47,15 +48,15 @@ const RETRY_PROMPT =
   'explanatory text, or characters outside the array. ' +
   'Return ONLY a raw JSON array with zero text before or after it. ' +
   'Each element must match exactly: ' +
-  '{ "title": string, "date": "YYYY-MM-DD", "time": "HH:MM in 24-hour format or null", "description": string or null }. ' +
+  '{ "title": string, "date": "YYYY-MM-DD", "time": "HH:MM in 24-hour format or null", "description": string or null, "genre": "Comedy" | "Music" | "Poetry" | null }. ' +
   'If no qualifying events are visible, return exactly: []';
 
 export interface GeminiEvent {
   title: string;
-
   date: string;
   time: string | null;
   description: string | null;
+  genre: 'Comedy' | 'Music' | 'Poetry' | null;
 }
 
 /**
@@ -114,6 +115,9 @@ async function runGeminiCall(
         date:        typeof item['date']        === 'string' ? item['date']        : String(item['date'] ?? ''),
         time:        typeof item['time']        === 'string' ? item['time']        : null,
         description: typeof item['description'] === 'string' ? item['description'] : null,
+        genre:       ['Comedy', 'Music', 'Poetry'].includes(item['genre'] as string)
+                       ? (item['genre'] as 'Comedy' | 'Music' | 'Poetry')
+                       : null,
       }))
       .filter((e) => e.title && e.date);
 
