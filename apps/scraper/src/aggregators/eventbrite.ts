@@ -34,8 +34,8 @@ export interface AggregatedEvent {
     address: string;
     city: string;
     state: string;
-    lat: number | null;
-    lng: number | null;
+    lat: number | undefined;
+    lng: number | undefined;
   };
 }
 
@@ -158,8 +158,8 @@ function mapToAggregatedEvent(event: EBEvent): AggregatedEvent | null {
       address: address.address_1,
       city: address.city,
       state: address.region,
-      lat: address.latitude ? parseFloat(address.latitude) : null,
-      lng: address.longitude ? parseFloat(address.longitude) : null,
+      lat: address.latitude ? parseFloat(address.latitude) : undefined,
+      lng: address.longitude ? parseFloat(address.longitude) : undefined,
     },
   };
 }

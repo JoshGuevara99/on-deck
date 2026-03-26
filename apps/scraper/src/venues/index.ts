@@ -29,6 +29,10 @@ export interface VenueTarget {
    * Falls back to auto-detection if omitted.
    */
   calendarSelector?: string;
+  /** Latitude for map display. */
+  lat?: number;
+  /** Longitude for map display. */
+  lng?: number;
 }
 
 export { NYC_VENUES } from './nyc';

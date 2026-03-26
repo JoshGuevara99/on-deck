@@ -231,6 +231,8 @@ export function toScrapedEvent(fields: RawEventFields, venue: VenueTarget): Scra
       address: fields.address ?? venue.city,
       city: venue.city,
       state: venue.state,
+      lat: venue.lat,
+      lng: venue.lng,
     },
   });
 

@@ -42,6 +42,8 @@ export const ScrapedEventSchema = z.object({
     city: z.string(),
     state: z.string(),
     instagramHandle: z.string().optional(),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
   }),
 });
 

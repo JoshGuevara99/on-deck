@@ -54,7 +54,7 @@ async function fetchPhoto(type: string, genres: string[]) {
 
 // ─── Venue upsert ─────────────────────────────────────────────────────────────
 
-async function upsertVenue(v: ScrapedEvent['venue']) {
+async function upsertVenue(v: ScrapedEvent['venue'] & { lat?: number | null; lng?: number | null }) {
   const existing = await prisma.venue.findFirst({
     where: {
       name: { equals: v.name, mode: 'insensitive' },
@@ -64,12 +64,13 @@ async function upsertVenue(v: ScrapedEvent['venue']) {
   });
 
   if (existing) {
-    // Backfill Instagram handle if we found one and the record doesn't have it yet
-    if (v.instagramHandle && !existing.instagramHandle) {
-      return prisma.venue.update({
-        where: { id: existing.id },
-        data: { instagramHandle: v.instagramHandle },
-      });
+    // Backfill any fields we now have but the record is missing
+    const updates: Record<string, unknown> = {};
+    if (v.instagramHandle && !existing.instagramHandle) updates.instagramHandle = v.instagramHandle;
+    if (v.lat != null && existing.lat == null) updates.lat = v.lat;
+    if (v.lng != null && existing.lng == null) updates.lng = v.lng;
+    if (Object.keys(updates).length > 0) {
+      return prisma.venue.update({ where: { id: existing.id }, data: updates });
     }
     return existing;
   }
@@ -82,6 +83,8 @@ async function upsertVenue(v: ScrapedEvent['venue']) {
       city: v.city,
       state: v.state,
       instagramHandle: v.instagramHandle ?? null,
+      lat: v.lat ?? undefined,
+      lng: v.lng ?? undefined,
     },
   });
 }
