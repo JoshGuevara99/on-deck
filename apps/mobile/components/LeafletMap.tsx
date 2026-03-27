@@ -5,6 +5,20 @@ import { DEFAULT_CITY } from '../constants/cities';
 import type { VenueMarker } from './PlatformMap';
 import type { CityOption } from '../constants/cities';
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  OPEN_MIC: 'Open Mic',
+  JAM_SESSION: 'Jam Session',
+  COMEDY_NIGHT: 'Comedy Night',
+  POETRY_SLAM: 'Poetry Slam',
+  OPEN_STAGE: 'Open Stage',
+  WORKSHOP: 'Workshop',
+  OPEN_STUDIO: 'Open Studio',
+};
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 interface Props {
   venues: VenueMarker[];
   selectedCity: CityOption | null;
@@ -44,11 +58,27 @@ export default function LeafletMap({ venues, selectedCity }: Props) {
           pathOptions={{ color: '#d4a017', fillColor: '#d4a017', fillOpacity: 0.85 }}
         >
           <Popup>
-            <strong>{venue.name}</strong>
-            <br />
-            {venue.eventTitles.length === 1
-              ? venue.eventTitles[0]
-              : `${venue.eventTitles.length} events`}
+            <div style={{ minWidth: 160, maxWidth: 240, fontFamily: 'system-ui, sans-serif' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#d4a017', marginBottom: 6 }}>
+                {venue.name}
+              </div>
+              {venue.events.map((event) => (
+                <a
+                  key={event.id}
+                  href={`/events/${event.id}`}
+                  style={{ display: 'block', textDecoration: 'none', color: 'inherit', borderTop: '1px solid #eee', paddingTop: 5, marginTop: 5 }}
+                >
+                  <div style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>
+                    {formatTime(event.startsAt)}
+                    {' · '}
+                    {EVENT_TYPE_LABELS[event.type] ?? event.type}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginTop: 1, color: '#111' }}>
+                    {event.title}
+                  </div>
+                </a>
+              ))}
+            </div>
           </Popup>
         </CircleMarker>
       ))}

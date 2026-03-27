@@ -8,37 +8,33 @@ import { useEvents } from '../../context/EventsContext';
 import { useLocation } from '../../context/LocationContext';
 import { CityPickerModal } from '../../components/CityPickerModal';
 import PlatformMap from '../../components/PlatformMap';
-import type { VenueMarker } from '../../components/PlatformMap';
+import type { VenueMarker, VenueMarkerEvent } from '../../components/PlatformMap';
 
-type TimeFilter = 'tonight' | 'weekend' | 'week' | 'all';
+type TimeFilter = 'all' | 'today' | 'tomorrow' | 'week';
 
 const TIME_FILTERS: { key: TimeFilter; label: string }[] = [
-  { key: 'tonight', label: 'Tonight' },
-  { key: 'weekend', label: 'This Weekend' },
-  { key: 'week', label: 'This Week' },
-  { key: 'all', label: 'All' },
+  { key: 'all',      label: 'All' },
+  { key: 'today',    label: 'Today' },
+  { key: 'tomorrow', label: 'Tomorrow' },
+  { key: 'week',     label: 'This Week' },
 ];
 
 function getFilterRange(filter: TimeFilter): { start: Date; end: Date } | null {
   if (filter === 'all') return null;
   const now = new Date();
   const start = new Date(now);
-  start.setSeconds(0, 0);
   const end = new Date(now);
 
-  if (filter === 'tonight') {
-    end.setHours(23, 59, 59, 999);
-  } else if (filter === 'weekend') {
-    const day = now.getDay(); // 0=Sun, 6=Sat
-    // Start: this coming Friday at 00:00 (or today if already Fri/Sat/Sun)
-    const daysToFri = day <= 5 ? 5 - day : 0;
-    start.setDate(now.getDate() + daysToFri);
+  if (filter === 'today') {
     start.setHours(0, 0, 0, 0);
-    // End: Sunday 23:59
-    const daysToSun = day === 0 ? 0 : 7 - day;
-    end.setDate(now.getDate() + daysToSun);
+    end.setHours(23, 59, 59, 999);
+  } else if (filter === 'tomorrow') {
+    start.setDate(now.getDate() + 1);
+    start.setHours(0, 0, 0, 0);
+    end.setDate(now.getDate() + 1);
     end.setHours(23, 59, 59, 999);
   } else if (filter === 'week') {
+    start.setHours(0, 0, 0, 0);
     end.setDate(now.getDate() + 7);
     end.setHours(23, 59, 59, 999);
   }
@@ -51,7 +47,7 @@ export default function MapScreen() {
   const { events } = useEvents();
   const { selectedCity, setCity, locationPermission, deviceCoords } = useLocation();
   const [showCityPicker, setShowCityPicker] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('tonight');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
 
   const venues = useMemo<VenueMarker[]>(() => {
     const range = getFilterRange(timeFilter);
@@ -68,10 +64,17 @@ export default function MapScreen() {
           name: event.venue.name,
           lat: event.venue.lat,
           lng: event.venue.lng,
-          eventTitles: [],
+          events: [],
         });
       }
-      map.get(event.venue.id)!.eventTitles.push(event.title);
+      const venueEntry = map.get(event.venue.id)!;
+      const markerEvent: VenueMarkerEvent = {
+        id: event.id,
+        title: event.title,
+        startsAt: event.startsAt,
+        type: event.type,
+      };
+      venueEntry.events.push(markerEvent);
     }
     return [...map.values()];
   }, [events, timeFilter]);
@@ -98,7 +101,8 @@ export default function MapScreen() {
         <View style={[styles.badge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Ionicons name="location" size={13} color={colors.gold} />
           <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
-            {venues.length} {venues.length === 1 ? 'venue' : 'venues'}
+            {venues.reduce((n, v) => n + v.events.length, 0)}{' '}
+            {venues.reduce((n, v) => n + v.events.length, 0) === 1 ? 'event' : 'events'}
           </Text>
         </View>
       </View>

@@ -2,12 +2,19 @@ import { lazy, Suspense, useState, useEffect } from 'react';
 import { View } from 'react-native';
 import type { CityOption } from '../constants/cities';
 
+export interface VenueMarkerEvent {
+  id: string;
+  title: string;
+  startsAt: Date;
+  type: string;
+}
+
 export interface VenueMarker {
   id: string;
   name: string;
   lat: number;
   lng: number;
-  eventTitles: string[];
+  events: VenueMarkerEvent[];
 }
 
 interface Props {
