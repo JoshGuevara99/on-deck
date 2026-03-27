@@ -110,7 +110,10 @@ export interface ApiEvent {
 export interface EventSignup {
   id: string;
   eventId: string;
-  userId: string;
+  userId: string | null;
+  guestName: string | null;
+  guestEmail: string | null;
+  source: string;
   performerType: PerformerType | null;
   instruments: string[];
   genres: string[];
@@ -121,12 +124,13 @@ export interface EventSignup {
   status: SignupStatus;
   createdAt: string;
   updatedAt: string;
-  user: Pick<User, 'id' | 'displayName' | 'name' | 'avatarUrl'>;
+  user: Pick<User, 'id' | 'displayName' | 'name' | 'avatarUrl'> | null;
 }
 
 /** Public-facing roster entry — safe to show all users. Note omitted. */
 export interface PublicSignup {
   id: string;
+  guestName: string | null;
   slotOrder: number | null;
   status: SignupStatus;
   performerType: PerformerType | null;
@@ -135,7 +139,7 @@ export interface PublicSignup {
   instagramHandle: string | null;
   tiktokHandle: string | null;
   createdAt: string;
-  user: { id: string; displayName: string | null; name: string | null; avatarUrl: string | null };
+  user: { id: string; displayName: string | null; name: string | null; avatarUrl: string | null } | null;
 }
 
 // ─── Input shapes ─────────────────────────────────────────────────────────────
@@ -204,6 +208,8 @@ export interface UpdateUserInput {
 }
 
 export interface CreateSignupInput {
+  guestName?: string; // required for unauthenticated signups
+  guestEmail?: string;
   performerType?: PerformerType;
   instruments?: string[];
   genres?: string[];

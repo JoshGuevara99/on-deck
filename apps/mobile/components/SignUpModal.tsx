@@ -17,8 +17,11 @@ import type { MockEvent } from '../constants/mock-data';
 interface Props {
   event: MockEvent;
   visible: boolean;
+  guestMode?: boolean; // true when user is not signed in
   onClose: () => void;
   onSubmit: (input: {
+    guestName?: string;
+    guestEmail?: string;
     performerType?: PerformerType;
     instruments: string[];
     genres: string[];
@@ -36,10 +39,12 @@ const PERFORMER_TYPES: { value: PerformerType; label: string; icon: string }[] =
   { value: 'OTHER',       label: 'Other',       icon: 'ellipsis-horizontal-outline' },
 ];
 
-export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
+export function SignUpModal({ event, visible, guestMode = false, onClose, onSubmit }: Props) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
 
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
   const [performerType, setPerformerType] = useState<PerformerType | undefined>(undefined);
   const [instruments, setInstruments] = useState('');
   const [genres, setGenres] = useState('');
@@ -51,6 +56,8 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
   const [slotPosition, setSlotPosition] = useState<number | null>(null);
 
   function reset() {
+    setGuestName('');
+    setGuestEmail('');
     setPerformerType(undefined);
     setInstruments('');
     setGenres('');
@@ -67,10 +74,16 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
   }
 
   async function handleSubmit() {
+    if (guestMode && !guestName.trim()) {
+      setError('Please enter your name.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const result = await onSubmit({
+        guestName: guestMode ? guestName.trim() : undefined,
+        guestEmail: guestMode && guestEmail.trim() ? guestEmail.trim() : undefined,
         performerType,
         instruments: instruments.split(',').map((s) => s.trim()).filter(Boolean),
         genres: genres.split(',').map((s) => s.trim()).filter(Boolean),
@@ -111,7 +124,8 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
             <Ionicons name="checkmark-circle" size={64} color={colors.gold} />
             <Text style={styles.successHeading}>You're on the list!</Text>
             <Text style={styles.successSub}>
-              You're <Text style={{ color: colors.gold, fontWeight: '800' }}>#{slotPosition}</Text> tonight at {event.venue.name}.
+              {guestMode && guestName.trim() ? `${guestName.trim()}, you're ` : "You're "}
+              <Text style={{ color: colors.gold, fontWeight: '800' }}>#{slotPosition}</Text> at {event.venue.name}.
             </Text>
             {(instagramHandle.trim() || tiktokHandle.trim()) && (
               <Text style={[styles.successSocials, { color: colors.textMuted }]}>
@@ -128,6 +142,31 @@ export function SignUpModal({ event, visible, onClose, onSubmit }: Props) {
         ) : (
           // ─── Form ─────────────────────────────────────────────────────────
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            {guestMode && (
+              <>
+                <Text style={styles.label}>Your name <Text style={{ color: colors.jam, fontWeight: '800', textTransform: 'none', letterSpacing: 0 }}>*</Text></Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Alex Rivera"
+                  placeholderTextColor={colors.textMuted}
+                  value={guestName}
+                  onChangeText={setGuestName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+                <Text style={styles.label}>Email <Text style={styles.optional}>(optional — for confirmation)</Text></Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@example.com"
+                  placeholderTextColor={colors.textMuted}
+                  value={guestEmail}
+                  onChangeText={setGuestEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </>
+            )}
             <Text style={styles.label}>What do you do?</Text>
             <View style={styles.typeGrid}>
               {PERFORMER_TYPES.map(({ value, label, icon }) => (

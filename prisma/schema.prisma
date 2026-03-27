@@ -193,7 +193,10 @@ model Event {
 model EventSignup {
   id            String        @id @default(cuid())
   eventId       String
-  userId        String
+  userId        String?       // null for guest signups
+  guestName     String?       // set when userId is null
+  guestEmail    String?       // optional for guest signups
+  source        String        @default("app") // "app" | "web"
   performerType PerformerType?
   instruments   String[]      @default([])
   genres        String[]      @default([])
@@ -205,11 +208,11 @@ model EventSignup {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([eventId, userId])
-  @@index([eventId, status])  // slot counting on every signup creation
+  @@unique([eventId, userId])  // NULLs are not equal in postgres — guests can coexist
+  @@index([eventId, status])
 }
 
 model EventAttendee {

@@ -206,7 +206,7 @@ export default function RosterScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           renderItem={({ item: signup, index }) => {
-            const name = signup.user.displayName || signup.user.name || 'Anonymous';
+            const name = signup.guestName ?? signup.user?.displayName ?? signup.user?.name ?? 'Anonymous';
             const typeLabel = signup.performerType
               ? (PERFORMER_TYPE_LABELS[signup.performerType] ?? signup.performerType)
               : null;
@@ -285,7 +285,7 @@ export default function RosterScreen() {
                 </View>
 
                 {/* Avatar */}
-                {signup.user.avatarUrl ? (
+                {signup.user?.avatarUrl ? (
                   <Image source={{ uri: signup.user.avatarUrl }} style={styles.avatar} />
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.surface }]}>

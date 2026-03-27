@@ -153,7 +153,7 @@ export const apiClient = {
       return get(`/events/${eventId}/signups`, undefined, token);
     },
 
-    async create(eventId: string, input: CreateSignupInput, token: string): Promise<EventSignup & { slotPosition: number }> {
+    async create(eventId: string, input: CreateSignupInput, token?: string): Promise<EventSignup & { slotPosition: number }> {
       return post(`/events/${eventId}/signups`, input, token);
     },
 

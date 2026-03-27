@@ -9,6 +9,8 @@ export const signupsRouter = Router({ mergeParams: true });
 const PerformerTypeEnum = z.enum(['MUSICIAN', 'COMEDIAN', 'POET', 'STORYTELLER', 'OTHER']);
 
 const CreateSignupSchema = z.object({
+  guestName: z.string().min(1).max(100).optional(),
+  guestEmail: z.string().email().max(200).optional(),
   performerType: PerformerTypeEnum.optional(),
   instruments: z.array(z.string()).optional().default([]),
   genres: z.array(z.string()).optional().default([]),
@@ -25,6 +27,7 @@ const UpdateSignupSchema = z.object({
 /** Fields included in every public roster response */
 const PUBLIC_SIGNUP_SELECT = {
   id: true,
+  guestName: true,
   slotOrder: true,
   status: true,
   performerType: true,
@@ -71,12 +74,17 @@ signupsRouter.get('/', async (req, res, next) => {
   }
 });
 
-/** POST /events/:id/signups — sign up to perform */
-signupsRouter.post('/', requireAuth, async (req, res, next) => {
+/** POST /events/:id/signups — sign up to perform (auth optional — guests welcome) */
+signupsRouter.post('/', async (req, res, next) => {
   try {
     const { id: eventId } = req.params as { id: string };
     const { userId } = getAuth(req);
+    const isGuest = !userId;
     const input = CreateSignupSchema.parse(req.body);
+
+    if (isGuest && !input.guestName?.trim()) {
+      return res.status(400).json({ error: 'Name is required to sign up' });
+    }
 
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return res.status(404).json({ error: 'Event not found' });
@@ -95,7 +103,10 @@ signupsRouter.post('/', requireAuth, async (req, res, next) => {
     const signup = await prisma.eventSignup.create({
       data: {
         eventId,
-        userId: userId as string,
+        userId: isGuest ? null : (userId as string),
+        guestName: isGuest ? input.guestName!.trim() : null,
+        guestEmail: isGuest ? (input.guestEmail?.trim() || null) : null,
+        source: isGuest ? 'web' : 'app',
         performerType: input.performerType ?? null,
         instruments: input.instruments,
         genres: input.genres,
@@ -157,8 +168,8 @@ signupsRouter.patch('/:signupId', requireAuth, async (req, res, next) => {
       include: { user: { select: { id: true, displayName: true, name: true, avatarUrl: true } } },
     });
 
-    // If marking as PERFORMED, increment the user's performanceCount
-    if (input.status === 'PERFORMED') {
+    // If marking as PERFORMED and signup belongs to a registered user, increment their count
+    if (input.status === 'PERFORMED' && signup.userId) {
       await prisma.user.update({
         where: { id: signup.userId },
         data: { performanceCount: { increment: 1 } },
