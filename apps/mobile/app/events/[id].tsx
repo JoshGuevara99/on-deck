@@ -12,6 +12,7 @@ import {
   Share,
   Alert,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -133,10 +134,20 @@ export default function EventDetailScreen() {
     if (!event) return;
     const appUrl = process.env.EXPO_PUBLIC_APP_URL ?? 'http://localhost:8081';
     const url = `${appUrl}/events/${event.id}`;
+    const message = `${event.title} @ ${event.venue.name}`;
     try {
-      await Share.share({ message: `${event.title} @ ${event.venue.name}\n${url}`, url });
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share({ title: event.title, text: message, url });
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          await navigator.clipboard.writeText(url);
+          Alert.alert('Link copied', 'Event link copied to clipboard.');
+        }
+      } else {
+        await Share.share({ message: `${message}\n${url}`, url });
+      }
     } catch {
-      // user cancelled or not supported — no-op
+      // user cancelled — no-op
     }
   }
 

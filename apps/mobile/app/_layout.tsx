@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { ThemeProvider } from '../context/ThemeContext';
 import { LocationProvider } from '../context/LocationContext';
@@ -44,7 +45,7 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!} tokenCache={tokenCache}>
+      <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!} tokenCache={Platform.OS === 'web' ? undefined : tokenCache}>
         <LocationProvider>
           <EventsProvider>
             <AttendingProvider>
