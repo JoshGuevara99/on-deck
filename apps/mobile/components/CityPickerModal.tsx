@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -23,25 +22,8 @@ interface Props {
 
 export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Props) {
   const { colors } = useTheme();
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
-  const styles = makeStyles(colors, keyboardOffset);
+  const styles = makeStyles(colors);
   const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const vv = (window as any).visualViewport;
-    if (!vv) return;
-    const handler = () => {
-      const offset = window.innerHeight - vv.height - vv.offsetTop;
-      setKeyboardOffset(Math.max(0, offset));
-    };
-    vv.addEventListener('resize', handler);
-    vv.addEventListener('scroll', handler);
-    return () => {
-      vv.removeEventListener('resize', handler);
-      vv.removeEventListener('scroll', handler);
-    };
-  }, []);
 
   function handleSelect(city: CityOption | null) {
     onSelect(city);
@@ -77,10 +59,9 @@ export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Pr
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable style={styles.backdrop} onPress={handleClose} />
+      <Pressable style={styles.overlay} onPress={handleClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
 
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
 
         {/* Search input */}
         <View style={styles.searchBar}>
@@ -144,7 +125,8 @@ export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Pr
             />
           )}
         </ScrollView>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -225,31 +207,30 @@ const rowStyles = StyleSheet.create({
   },
 });
 
-function makeStyles(colors: ReturnType<typeof useTheme>['colors'], keyboardOffset = 0) {
+function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    backdrop: {
+    overlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
     },
     sheet: {
+      width: '100%',
+      maxWidth: 420,
       backgroundColor: colors.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingTop: 12,
+      borderRadius: 20,
+      paddingTop: 20,
       paddingHorizontal: 20,
-      paddingBottom: 48 + keyboardOffset,
-      borderTopWidth: StyleSheet.hairlineWidth,
+      paddingBottom: 16,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
-      maxHeight: '70%',
+      maxHeight: '75%',
     },
     handle: {
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.border,
-      alignSelf: 'center',
-      marginBottom: 14,
-    },
+      display: 'none',
+    } as any,
     searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
