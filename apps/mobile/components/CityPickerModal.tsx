@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -22,8 +23,25 @@ interface Props {
 
 export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Props) {
   const { colors } = useTheme();
-  const styles = makeStyles(colors);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const styles = makeStyles(colors, keyboardOffset);
   const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const vv = (window as any).visualViewport;
+    if (!vv) return;
+    const handler = () => {
+      const offset = window.innerHeight - vv.height - vv.offsetTop;
+      setKeyboardOffset(Math.max(0, offset));
+    };
+    vv.addEventListener('resize', handler);
+    vv.addEventListener('scroll', handler);
+    return () => {
+      vv.removeEventListener('resize', handler);
+      vv.removeEventListener('scroll', handler);
+    };
+  }, []);
 
   function handleSelect(city: CityOption | null) {
     onSelect(city);
@@ -207,7 +225,7 @@ const rowStyles = StyleSheet.create({
   },
 });
 
-function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
+function makeStyles(colors: ReturnType<typeof useTheme>['colors'], keyboardOffset = 0) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
@@ -219,7 +237,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderTopRightRadius: 20,
       paddingTop: 12,
       paddingHorizontal: 20,
-      paddingBottom: 48,
+      paddingBottom: 48 + keyboardOffset,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       maxHeight: '70%',

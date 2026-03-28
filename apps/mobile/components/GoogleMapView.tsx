@@ -22,9 +22,10 @@ function formatTime(date: Date): string {
 interface Props {
   venues: VenueMarker[];
   selectedCity: CityOption | null;
+  deviceCoords?: { lat: number; lng: number } | null;
 }
 
-export default function GoogleMapView({ venues, selectedCity }: Props) {
+export default function GoogleMapView({ venues, selectedCity, deviceCoords }: Props) {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
@@ -88,6 +89,23 @@ export default function GoogleMapView({ venues, selectedCity }: Props) {
           />
         </OverlayView>
       ))}
+
+      {deviceCoords && (
+        <OverlayView
+          position={{ lat: deviceCoords.lat, lng: deviceCoords.lng }}
+          mapPaneName={OverlayView.OVERLAY_LAYER}
+        >
+          <div style={{
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            background: '#4285F4',
+            border: '2.5px solid #fff',
+            transform: 'translate(-50%, -50%)',
+            boxShadow: '0 0 0 4px rgba(66,133,244,0.2)',
+          }} />
+        </OverlayView>
+      )}
 
       {activeVenue && (
         <InfoWindow

@@ -28,7 +28,7 @@ interface Props {
 // React.lazy + a mount guard ensures the import only fires in the browser.
 const GoogleMapView = lazy(() => import('./GoogleMapView'));
 
-export default function PlatformMap({ venues, selectedCity }: Props) {
+export default function PlatformMap({ venues, selectedCity, deviceCoords }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function PlatformMap({ venues, selectedCity }: Props) {
 
   return (
     <Suspense fallback={<View style={{ flex: 1 }} />}>
-      <GoogleMapView venues={venues} selectedCity={selectedCity} />
+      <GoogleMapView venues={venues} selectedCity={selectedCity} deviceCoords={deviceCoords} />
     </Suspense>
   );
 }
