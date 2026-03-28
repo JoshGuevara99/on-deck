@@ -24,10 +24,9 @@ interface Props {
   deviceCoords: { lat: number; lng: number } | null;
 }
 
-// LeafletMap accesses `window` at import time, so it must never be loaded
-// during Expo Router's SSR/static-generation pass (Node.js has no `window`).
+// GoogleMapView uses browser APIs so it must never be loaded during SSR/static-gen.
 // React.lazy + a mount guard ensures the import only fires in the browser.
-const LeafletMap = lazy(() => import('./LeafletMap'));
+const GoogleMapView = lazy(() => import('./GoogleMapView'));
 
 export default function PlatformMap({ venues, selectedCity }: Props) {
   const [mounted, setMounted] = useState(false);
@@ -40,7 +39,7 @@ export default function PlatformMap({ venues, selectedCity }: Props) {
 
   return (
     <Suspense fallback={<View style={{ flex: 1 }} />}>
-      <LeafletMap venues={venues} selectedCity={selectedCity} />
+      <GoogleMapView venues={venues} selectedCity={selectedCity} />
     </Suspense>
   );
 }
