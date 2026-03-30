@@ -46,6 +46,8 @@ export default function EventDetailScreen() {
   const [lineup, setLineup] = useState<PublicSignup[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const goBack = () => router.canGoBack() ? goBack() : router.replace('/(tabs)');
+
   const rsvped = event ? attendingIds.has(event.id) : false;
   const isHost = isSignedIn && event?.hostId === userId;
   const accentColor = event?.type === 'OPEN_MIC' ? colors.gold : colors.jam;
@@ -164,7 +166,7 @@ export default function EventDetailScreen() {
       <SafeAreaView style={[styles.safe, styles.centered]}>
         <Ionicons name="calendar-outline" size={48} color={colors.textMuted} />
         <Text style={styles.emptyText}>Event not found</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtnCenter}>
+        <TouchableOpacity onPress={() => goBack()} style={styles.backBtnCenter}>
           <Text style={[styles.backBtnCenterText, { color: colors.gold }]}>Go back</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -181,7 +183,7 @@ export default function EventDetailScreen() {
           <View style={styles.heroContainer}>
             <Image source={{ uri: event.coverImageUrl }} style={styles.heroImage} resizeMode="cover" />
             {/* Back button over image */}
-            <TouchableOpacity style={styles.backBtnOverlay} onPress={() => router.back()} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.backBtnOverlay} onPress={() => goBack()} activeOpacity={0.8}>
               <Ionicons name="chevron-back" size={20} color="#fff" />
             </TouchableOpacity>
             {/* gradient hint at bottom */}
@@ -193,7 +195,7 @@ export default function EventDetailScreen() {
         ) : (
           /* No image — plain back button */
           <View style={styles.plainHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtnPlain}>
+            <TouchableOpacity onPress={() => goBack()} style={styles.backBtnPlain}>
               <Ionicons name="chevron-back" size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
