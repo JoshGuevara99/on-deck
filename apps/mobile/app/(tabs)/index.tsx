@@ -84,7 +84,7 @@ function applyDateFilter(events: MockEvent[], filter: DateFilter): MockEvent[] {
     case 'date':
       return events.filter((e) => isSameDay(e.startsAt, filter.date));
     default:
-      return events;
+      return events.filter((e) => e.startsAt >= startOfDay(now));
   }
 }
 
