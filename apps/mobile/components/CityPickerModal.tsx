@@ -120,7 +120,7 @@ export function CityPickerModal({ visible, selectedCity, onSelect, onClose }: Pr
               sublabel="Search events in this city"
               icon="search-outline"
               active={false}
-              onPress={() => handleSelect({ city: trimmed, label: trimmed })}
+              onPress={() => handleSelect({ city: trimmed, state: '', label: trimmed })}
               colors={colors}
             />
           )}

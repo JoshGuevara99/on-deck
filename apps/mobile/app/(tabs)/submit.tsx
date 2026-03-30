@@ -12,8 +12,12 @@ import {
   useWindowDimensions,
   StatusBar,
   Image,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { UnsplashPickerModal } from '../../components/UnsplashPickerModal';
+import { CityPickerModal } from '../../components/CityPickerModal';
+import { CalendarModal } from '../../components/CalendarModal';
 import type { UnsplashPhoto } from '@on-deck/shared';
 import { useRouter } from 'expo-router';
 import { apiClient } from '../../lib/api';
@@ -23,6 +27,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { useEvents } from '../../context/EventsContext';
 import type { EventType, CreateEventInput } from '@on-deck/shared';
 import type { MockEvent } from '../../constants/mock-data';
+import type { CityOption } from '../../constants/cities';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const GOLD_TYPES = new Set<EventType>(['OPEN_MIC', 'JAM_SESSION', 'OPEN_STAGE']);
 
@@ -46,6 +53,25 @@ const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
   { value: 'OPEN_STUDIO',  label: 'Open Studio' },
 ];
 
+const COVER_CHARGE_OPTIONS = ['Free', '$5', '$10', '$15', '$20', '$25+'];
+
+// Generate times in 15-min increments across full 24h, starting at 6 AM
+function generateTimeOptions(): string[] {
+  const times: string[] = [];
+  for (let i = 0; i < 96; i++) {
+    const totalMinutes = (i * 15 + 6 * 60) % (24 * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    const meridiem = h < 12 ? 'AM' : 'PM';
+    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    times.push(`${displayH}:${m.toString().padStart(2, '0')} ${meridiem}`);
+  }
+  return times;
+}
+const TIME_OPTIONS = generateTimeOptions();
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface FormState {
   title: string;
   venueName: string;
@@ -53,7 +79,9 @@ interface FormState {
   neighborhood: string;
   city: string;
   state: string;
-  date: string;
+  specificDate: Date | null;
+  isRecurring: boolean;
+  recurringDesc: string;
   startTime: string;
   coverCharge: string;
   slotDuration: string;
@@ -66,7 +94,6 @@ interface FormErrors {
   venueName?: string;
   address?: string;
   city?: string;
-  state?: string;
   date?: string;
   startTime?: string;
 }
@@ -78,13 +105,22 @@ const INITIAL_FORM: FormState = {
   neighborhood: '',
   city: '',
   state: '',
-  date: '',
+  specificDate: null,
+  isRecurring: false,
+  recurringDesc: '',
   startTime: '',
-  coverCharge: '',
+  coverCharge: 'Free',
   slotDuration: '',
   backline: '',
   description: '',
 };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Strip HTML/script tags to prevent injection from free-text fields. */
+function sanitize(s: string): string {
+  return s.replace(/<[^>]*>/g, '').trim();
+}
 
 function validate(form: FormState): FormErrors {
   const errors: FormErrors = {};
@@ -92,19 +128,26 @@ function validate(form: FormState): FormErrors {
   if (!form.venueName.trim()) errors.venueName = 'Venue name is required';
   if (!form.address.trim()) errors.address = 'Address is required';
   if (!form.city.trim()) errors.city = 'City is required';
-  if (!form.state.trim()) errors.state = 'State is required';
-  if (!form.date.trim()) errors.date = 'Date is required';
-  if (!form.startTime.trim()) errors.startTime = 'Start time is required';
+  if (!form.isRecurring && !form.specificDate) errors.date = 'Date is required';
+  if (form.isRecurring && !form.recurringDesc.trim()) errors.date = 'Please describe the recurring schedule';
+  if (!form.startTime) errors.startTime = 'Start time is required';
   return errors;
 }
 
-/** Convert free-text date + time into an ISO-8601 string. Falls back to tonight at 8 PM. */
-function toIso(dateStr: string, timeStr: string): string {
-  const combined = `${dateStr} ${timeStr}`;
-  const parsed = new Date(combined);
-  if (!isNaN(parsed.getTime())) return parsed.toISOString();
-
-  const fallback = new Date();
+function toIso(form: FormState): string {
+  const base = form.specificDate ?? new Date();
+  const match = form.startTime.match(/^(\d+):(\d+)\s(AM|PM)$/);
+  if (match) {
+    let hours = parseInt(match[1]!, 10);
+    const minutes = parseInt(match[2]!, 10);
+    const meridiem = match[3]!;
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    const result = new Date(base);
+    result.setHours(hours, minutes, 0, 0);
+    return result.toISOString();
+  }
+  const fallback = new Date(base);
   fallback.setHours(20, 0, 0, 0);
   return fallback.toISOString();
 }
@@ -116,27 +159,26 @@ function buildCreateInput(
   maxSlots: string,
   photo: UnsplashPhoto | null,
 ): CreateEventInput {
-  const isRecurring = /every/i.test(form.date);
   return {
-    title: form.title.trim(),
+    title: sanitize(form.title),
     type: eventType,
-    startsAt: toIso(form.date, form.startTime),
-    description: form.description.trim() || undefined,
+    startsAt: toIso(form),
+    description: sanitize(form.description) || undefined,
     genres: [],
-    coverCharge: form.coverCharge.trim() || 'Free',
-    slotDuration: form.slotDuration.trim() || undefined,
-    backline: form.backline.trim() ? [form.backline.trim()] : [],
+    coverCharge: form.coverCharge || 'Free',
+    slotDuration: sanitize(form.slotDuration) || undefined,
+    backline: sanitize(form.backline) ? [sanitize(form.backline)] : [],
     signUpMethod: signupsEnabled ? 'APP' : 'DOOR',
-    isRecurring,
-    recurringDescription: isRecurring ? form.date.trim() : undefined,
+    isRecurring: form.isRecurring,
+    recurringDescription: form.isRecurring ? sanitize(form.recurringDesc) : undefined,
     signupsEnabled,
     maxSlots: signupsEnabled && maxSlots.trim() ? parseInt(maxSlots.trim(), 10) : undefined,
     venue: {
-      name: form.venueName.trim(),
-      address: form.address.trim(),
-      neighborhood: form.neighborhood.trim() || undefined,
-      city: form.city.trim(),
-      state: form.state.trim().toUpperCase(),
+      name: sanitize(form.venueName),
+      address: sanitize(form.address),
+      neighborhood: sanitize(form.neighborhood) || undefined,
+      city: form.city,
+      state: form.state,
     },
     coverImageUrl: photo?.url,
     coverImageThumb: photo?.thumb,
@@ -146,7 +188,193 @@ function buildCreateInput(
   };
 }
 
-// ─── Success screen ──────────────────────────────────────────────────────────
+// ─── Time Picker Modal ────────────────────────────────────────────────────────
+
+function TimePickerModal({
+  visible,
+  selected,
+  onSelect,
+  onClose,
+  colors,
+}: {
+  visible: boolean;
+  selected: string;
+  onSelect: (time: string) => void;
+  onClose: () => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={[tpStyles.overlay]}>
+        <View style={[tpStyles.sheet, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+          <View style={[tpStyles.header, { borderBottomColor: colors.border }]}>
+            <Text style={[tpStyles.title, { color: colors.text }]}>Start Time</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={TIME_OPTIONS}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => {
+              const active = item === selected;
+              return (
+                <TouchableOpacity
+                  style={[
+                    tpStyles.option,
+                    { borderBottomColor: colors.border },
+                    active && { backgroundColor: `${colors.gold}18` },
+                  ]}
+                  onPress={() => { onSelect(item); onClose(); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[tpStyles.optionText, { color: active ? colors.gold : colors.text }, active && { fontWeight: '700' }]}>
+                    {item}
+                  </Text>
+                  {active && <Ionicons name="checkmark" size={18} color={colors.gold} />}
+                </TouchableOpacity>
+              );
+            }}
+            style={tpStyles.list}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const tpStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    maxHeight: '70%',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 18,
+    borderBottomWidth: 1,
+  },
+  title: { fontSize: 16, fontWeight: '700' },
+  list: { flexGrow: 0 },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  optionText: { fontSize: 16 },
+});
+
+// ─── Chip Selector (single select) ───────────────────────────────────────────
+
+function ChipSelector({
+  options,
+  selected,
+  onSelect,
+  colors,
+}: {
+  options: string[];
+  selected: string;
+  onSelect: (v: string) => void;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+      {options.map((opt) => {
+        const active = opt === selected;
+        return (
+          <TouchableOpacity
+            key={opt}
+            onPress={() => onSelect(opt)}
+            activeOpacity={0.8}
+            style={[
+              csStyles.chip,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              active && { borderColor: colors.gold, backgroundColor: `${colors.gold}18` },
+            ]}
+          >
+            <Text style={[csStyles.chipText, { color: active ? colors.gold : colors.textSecondary }, active && { fontWeight: '700' }]}>
+              {opt}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+const csStyles = StyleSheet.create({
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  chipText: { fontSize: 14 },
+});
+
+// ─── Select Button (tap to open picker) ───────────────────────────────────────
+
+function SelectButton({
+  placeholder,
+  value,
+  onPress,
+  error,
+  icon,
+  colors,
+}: {
+  placeholder: string;
+  value: string;
+  onPress: () => void;
+  error?: string;
+  icon?: string;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <View>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        style={[
+          sbStyles.btn,
+          { backgroundColor: colors.surface, borderColor: error ? colors.jam : colors.border },
+        ]}
+      >
+        <Text style={[sbStyles.value, { color: value ? colors.text : colors.textMuted }]}>
+          {value || placeholder}
+        </Text>
+        <Ionicons name={(icon as any) ?? 'chevron-down'} size={16} color={colors.textMuted} />
+      </TouchableOpacity>
+      {error && <Text style={[sbStyles.error, { color: colors.jam }]}>{error}</Text>}
+    </View>
+  );
+}
+
+const sbStyles = StyleSheet.create({
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  value: { fontSize: 15 },
+  error: { fontSize: 12, marginTop: 4, marginLeft: 2 },
+});
+
+// ─── Success screen ───────────────────────────────────────────────────────────
 
 interface SuccessProps {
   event: MockEvent;
@@ -382,7 +610,7 @@ function makeGateStyles(colors: ReturnType<typeof useTheme>['colors']) {
   });
 }
 
-// ─── Submit form ─────────────────────────────────────────────────────────────
+// ─── Submit form ──────────────────────────────────────────────────────────────
 
 export default function SubmitScreen() {
   const { colors, theme } = useTheme();
@@ -402,12 +630,13 @@ export default function SubmitScreen() {
   const [maxSlots, setMaxSlots] = useState('10');
   const [coverPhoto, setCoverPhoto] = useState<UnsplashPhoto | null>(null);
   const [showUnsplash, setShowUnsplash] = useState(false);
-  // Track whether the current photo was auto-selected (vs. manually picked)
+  const [showCityPicker, setShowCityPicker] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const photoManuallySelected = useRef(false);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  // Auto-fetch a cover photo when event type changes, unless user manually picked one
   useEffect(() => {
     if (photoManuallySelected.current) return;
     let cancelled = false;
@@ -422,10 +651,16 @@ export default function SubmitScreen() {
     return () => { cancelled = true; };
   }, [eventType]);
 
-  const setField = useCallback((key: keyof FormState, value: string) => {
+  const setField = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   }, []);
+
+  function handleCitySelect(city: CityOption | null) {
+    if (!city) return;
+    setForm((prev) => ({ ...prev, city: city.city, state: city.state }));
+    setErrors((prev) => ({ ...prev, city: undefined }));
+  }
 
   async function handleSubmit() {
     const validationErrors = validate(form);
@@ -433,15 +668,11 @@ export default function SubmitScreen() {
       setErrors(validationErrors);
       return;
     }
-    await doSubmit(coverPhoto);
-  }
-
-  async function doSubmit(photo: UnsplashPhoto | null) {
     try {
       setSubmitting(true);
       setSubmitError(null);
       const token = await getToken();
-      const input = buildCreateInput(eventType, form, signupsEnabled, maxSlots, photo);
+      const input = buildCreateInput(eventType, form, signupsEnabled, maxSlots, coverPhoto);
       const newEvent = await addEvent(input, token ?? undefined);
       setSubmittedEvent(newEvent);
     } catch {
@@ -468,9 +699,7 @@ export default function SubmitScreen() {
     router.push('/(tabs)');
   }
 
-  if (!isSignedIn) {
-    return <SignInGate />;
-  }
+  if (!isSignedIn) return <SignInGate />;
 
   if (submittedEvent) {
     return (
@@ -481,6 +710,12 @@ export default function SubmitScreen() {
       />
     );
   }
+
+  const dateDisplayValue = form.isRecurring
+    ? ''
+    : form.specificDate
+      ? form.specificDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+      : '';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -499,7 +734,7 @@ export default function SubmitScreen() {
         {/* Event type */}
         <Label text="Event Type" colors={colors} />
         <View style={styles.typeGrid}>
-          {(EVENT_TYPE_OPTIONS).map(({ value: t, label }) => {
+          {EVENT_TYPE_OPTIONS.map(({ value: t, label }) => {
             const active = eventType === t;
             const accentColor = GOLD_TYPES.has(t) ? colors.gold : colors.jam;
             return (
@@ -542,7 +777,7 @@ export default function SubmitScreen() {
         />
         <Field
           label="Address"
-          placeholder="e.g. 1315 S Congress Ave, Austin, TX"
+          placeholder="e.g. 1315 S Congress Ave"
           value={form.address}
           onChangeText={(v) => setField('address', v)}
           error={errors.address}
@@ -556,49 +791,85 @@ export default function SubmitScreen() {
           onChangeText={(v) => setField('neighborhood', v)}
           colors={colors}
         />
-        <Field
-          label="City"
-          placeholder="e.g. Austin"
-          value={form.city}
-          onChangeText={(v) => setField('city', v)}
+
+        {/* City — structured picker */}
+        <Label text="City" required colors={colors} />
+        <SelectButton
+          placeholder="Select a city…"
+          value={form.city ? `${form.city}${form.state ? `, ${form.state}` : ''}` : ''}
+          onPress={() => setShowCityPicker(true)}
           error={errors.city}
-          required
           colors={colors}
         />
-        <Field
-          label="State"
-          placeholder="e.g. TX"
-          value={form.state}
-          onChangeText={(v) => setField('state', v)}
-          error={errors.state}
-          required
-          colors={colors}
-        />
-        <Field
-          label="Date"
-          placeholder="e.g. Every Tuesday · or a specific date"
-          value={form.date}
-          onChangeText={(v) => setField('date', v)}
-          error={errors.date}
-          required
-          colors={colors}
-        />
-        <Field
-          label="Start Time"
-          placeholder="e.g. 8:00 PM"
+
+        {/* Date */}
+        <Label text="Date" required colors={colors} />
+        <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.toggleOption, !form.isRecurring && { backgroundColor: colors.gold }]}
+            onPress={() => setField('isRecurring', false)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.toggleOptionText, { color: !form.isRecurring ? colors.bg : colors.textSecondary }]}>
+              Specific Date
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleOption, form.isRecurring && { backgroundColor: colors.gold }]}
+            onPress={() => setField('isRecurring', true)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.toggleOptionText, { color: form.isRecurring ? colors.bg : colors.textSecondary }]}>
+              Recurring
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {!form.isRecurring ? (
+          <SelectButton
+            placeholder="Pick a date…"
+            value={dateDisplayValue}
+            onPress={() => setShowCalendar(true)}
+            error={errors.date}
+            icon="calendar-outline"
+            colors={colors}
+          />
+        ) : (
+          <View>
+            <TextInput
+              style={[
+                styles.textInput,
+                { borderColor: errors.date ? colors.jam : colors.border, color: colors.text, backgroundColor: colors.surface },
+              ]}
+              placeholder='e.g. Every Tuesday'
+              placeholderTextColor={colors.textMuted}
+              value={form.recurringDesc}
+              onChangeText={(v) => { setField('recurringDesc', v); setErrors((p) => ({ ...p, date: undefined })); }}
+            />
+            {errors.date && <Text style={[styles.errorText, { color: colors.jam }]}>{errors.date}</Text>}
+          </View>
+        )}
+
+        {/* Start Time — structured picker */}
+        <Label text="Start Time" required colors={colors} />
+        <SelectButton
+          placeholder="Select a time…"
           value={form.startTime}
-          onChangeText={(v) => setField('startTime', v)}
+          onPress={() => setShowTimePicker(true)}
           error={errors.startTime}
-          required
+          icon="time-outline"
           colors={colors}
         />
-        <Field
-          label="Cover Charge"
-          placeholder="e.g. Free · $5 at door"
-          value={form.coverCharge}
-          onChangeText={(v) => setField('coverCharge', v)}
+
+        {/* Cover Charge — structured chips */}
+        <Label text="Cover Charge" colors={colors} />
+        <ChipSelector
+          options={COVER_CHARGE_OPTIONS}
+          selected={form.coverCharge}
+          onSelect={(v) => setField('coverCharge', v)}
           colors={colors}
         />
+
         <Field
           label="Slot Duration"
           placeholder="e.g. 5 min · 3 songs · Open"
@@ -673,13 +944,17 @@ export default function SubmitScreen() {
             />
           </View>
           {signupsEnabled && (
-            <Field
-              label="Max Slots"
-              placeholder="e.g. 10"
-              value={maxSlots}
-              onChangeText={setMaxSlots}
-              colors={colors}
-            />
+            <View style={{ marginTop: 12 }}>
+              <Label text="Max Slots" colors={colors} />
+              <TextInput
+                style={[styles.textInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
+                placeholder="e.g. 10"
+                placeholderTextColor={colors.textMuted}
+                value={maxSlots}
+                onChangeText={setMaxSlots}
+                keyboardType="number-pad"
+              />
+            </View>
           )}
         </View>
 
@@ -708,6 +983,26 @@ export default function SubmitScreen() {
         </Text>
       </ScrollView>
 
+      <CityPickerModal
+        visible={showCityPicker}
+        selectedCity={form.city ? { city: form.city, state: form.state, label: `${form.city}, ${form.state}` } : null}
+        onSelect={handleCitySelect}
+        onClose={() => setShowCityPicker(false)}
+      />
+      <CalendarModal
+        visible={showCalendar}
+        events={[]}
+        selectedDate={form.specificDate}
+        onSelectDate={(date) => { setField('specificDate', date); setErrors((p) => ({ ...p, date: undefined })); }}
+        onClose={() => setShowCalendar(false)}
+      />
+      <TimePickerModal
+        visible={showTimePicker}
+        selected={form.startTime}
+        onSelect={(t) => { setField('startTime', t); setErrors((p) => ({ ...p, startTime: undefined })); }}
+        onClose={() => setShowTimePicker(false)}
+        colors={colors}
+      />
       <UnsplashPickerModal
         visible={showUnsplash}
         query={EVENT_TYPE_QUERIES[eventType]}
@@ -721,6 +1016,8 @@ export default function SubmitScreen() {
     </SafeAreaView>
   );
 }
+
+// ─── Shared sub-components ────────────────────────────────────────────────────
 
 function Label({
   text,
@@ -770,13 +1067,23 @@ function Field({
   error?: string;
   colors: ReturnType<typeof useTheme>['colors'];
 }) {
-  const inputStyle = makeInputStyle(colors, !!error, multiline);
-
   return (
     <View>
       <Label text={label} required={required} colors={colors} />
       <TextInput
-        style={inputStyle}
+        style={StyleSheet.flatten([
+          {
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: error ? colors.jam : colors.border,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            paddingVertical: 13,
+            fontSize: 15,
+            color: colors.text,
+          },
+          multiline && { height: 110, paddingTop: 13 },
+        ])}
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
         value={value}
@@ -786,55 +1093,18 @@ function Field({
         textAlignVertical={multiline ? 'top' : 'center'}
         accessibilityLabel={label}
       />
-      {error && <Text style={makeErrorStyle(colors)}>{error}</Text>}
+      {error && <Text style={{ fontSize: 12, color: colors.jam, marginTop: 4, marginLeft: 2 }}>{error}</Text>}
     </View>
   );
 }
 
-function makeInputStyle(
-  colors: ReturnType<typeof useTheme>['colors'],
-  hasError: boolean,
-  multiline: boolean,
-) {
-  return StyleSheet.flatten([
-    {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: hasError ? colors.jam : colors.border,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
-      fontSize: 15,
-      color: colors.text,
-    },
-    multiline && { height: 110, paddingTop: 13 },
-  ]);
-}
-
-function makeErrorStyle(colors: ReturnType<typeof useTheme>['colors']) {
-  return {
-    fontSize: 12,
-    color: colors.jam,
-    marginTop: 4,
-    marginLeft: 2,
-  };
-}
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: {
-      flex: 1,
-      backgroundColor: colors.bg,
-    },
-    content: {
-      padding: 20,
-      paddingBottom: 48,
-    },
-    contentWide: {
-      maxWidth: 560,
-      alignSelf: 'center',
-      width: '100%',
-    },
+    safe: { flex: 1, backgroundColor: colors.bg },
+    content: { padding: 20, paddingBottom: 48 },
+    contentWide: { maxWidth: 560, alignSelf: 'center', width: '100%' },
     heading: {
       fontSize: 28,
       fontWeight: '800',
@@ -849,11 +1119,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       lineHeight: 22,
       marginBottom: 4,
     },
-    typeGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-    },
+    typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     typeBtn: {
       paddingVertical: 10,
       paddingHorizontal: 16,
@@ -861,13 +1127,30 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    typeBtnText: { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
+    toggleRow: {
+      flexDirection: 'row',
+      borderRadius: 12,
+      borderWidth: 1,
+      overflow: 'hidden',
+      marginBottom: 10,
+    },
+    toggleOption: {
+      flex: 1,
+      paddingVertical: 11,
       alignItems: 'center',
+      justifyContent: 'center',
     },
-    typeBtnText: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: colors.textSecondary,
+    toggleOptionText: { fontSize: 14, fontWeight: '600' },
+    textInput: {
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      fontSize: 15,
     },
+    errorText: { fontSize: 12, marginTop: 4, marginLeft: 2 },
     submitBtn: {
       backgroundColor: colors.gold,
       borderRadius: 14,
@@ -876,20 +1159,9 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginTop: 16,
       marginBottom: 16,
     },
-    submitBtnDisabled: {
-      opacity: 0.6,
-    },
-    submitText: {
-      fontSize: 16,
-      fontWeight: '800',
-      letterSpacing: 0.5,
-    },
-    submitError: {
-      fontSize: 13,
-      textAlign: 'center',
-      marginBottom: 8,
-      marginTop: 12,
-    },
+    submitBtnDisabled: { opacity: 0.6 },
+    submitText: { fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+    submitError: { fontSize: 13, textAlign: 'center', marginBottom: 8, marginTop: 12 },
     signupsToggleCard: {
       borderRadius: 12,
       borderWidth: 1,
@@ -920,13 +1192,8 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       overflow: 'hidden',
       minHeight: 120,
     },
-    photoPickerBtnSelected: {
-      borderStyle: 'solid',
-    },
-    photoPreview: {
-      width: '100%',
-      height: 160,
-    },
+    photoPickerBtnSelected: { borderStyle: 'solid' },
+    photoPreview: { width: '100%', height: 160 },
     photoOverlay: {
       position: 'absolute',
       bottom: 0,
@@ -939,25 +1206,14 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       gap: 6,
       paddingVertical: 10,
     },
-    photoOverlayText: {
-      color: '#fff',
-      fontSize: 13,
-      fontWeight: '700',
-    },
+    photoOverlayText: { color: '#fff', fontSize: 13, fontWeight: '700' },
     photoPlaceholder: {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 10,
       paddingVertical: 32,
     },
-    photoPlaceholderText: {
-      fontSize: 13,
-      textAlign: 'center',
-    },
-    photoCredit: {
-      fontSize: 11,
-      marginTop: -4,
-      marginLeft: 4,
-    },
+    photoPlaceholderText: { fontSize: 13, textAlign: 'center' },
+    photoCredit: { fontSize: 11, marginTop: -4, marginLeft: 4 },
   });
 }

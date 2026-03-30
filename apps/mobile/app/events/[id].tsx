@@ -46,7 +46,7 @@ export default function EventDetailScreen() {
   const [lineup, setLineup] = useState<PublicSignup[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const goBack = () => router.canGoBack() ? goBack() : router.replace('/(tabs)');
+  const goBack = (): void => { router.canGoBack() ? router.back() : router.replace('/(tabs)'); };
 
   const rsvped = event ? attendingIds.has(event.id) : false;
   const isHost = isSignedIn && event?.hostId === userId;

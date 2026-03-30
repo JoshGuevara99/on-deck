@@ -64,6 +64,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       } else {
         setSelectedCity({
           city: detectedCity,
+          state: '',
           label: [detectedCity, results[0].region].filter(Boolean).join(', '),
           lat: latitude,
           lng: longitude,
