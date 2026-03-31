@@ -7,6 +7,16 @@ export interface CityOption {
 }
 
 export const PRESET_CITIES: CityOption[] = [
+  // Active cities
+  { city: 'New York',      state: 'NY', label: 'New York, NY',      lat: 40.7128, lng: -74.0060  },
+  { city: 'San Francisco', state: 'CA', label: 'San Francisco, CA', lat: 37.7749, lng: -122.4194 },
+  { city: 'Boston',        state: 'MA', label: 'Boston, MA',        lat: 42.3601, lng: -71.0589  },
+  { city: 'Austin',        state: 'TX', label: 'Austin, TX',        lat: 30.2672, lng: -97.7431  },
+];
+
+/*
+// Full city list (re-enable when expanding to more cities)
+const ALL_CITIES: CityOption[] = [
   // Top 100 US cities by population
   { city: 'New York',       state: 'NY', label: 'New York, NY',         lat: 40.7128,  lng: -74.0060  },
   { city: 'Los Angeles',    state: 'CA', label: 'Los Angeles, CA',       lat: 34.0522,  lng: -118.2437 },
@@ -213,5 +223,6 @@ export const PRESET_CITIES: CityOption[] = [
   { city: 'Athens',           state: 'GA', label: 'Athens, GA',              lat: 33.9519,  lng: -83.3576  },
   { city: 'Joliet',           state: 'IL', label: 'Joliet, IL',              lat: 41.5250,  lng: -88.0817  },
 ];
+*/
 
 export const DEFAULT_CITY = PRESET_CITIES[0]; // New York, NY
