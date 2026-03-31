@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Alert,
   FlatList,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/clerk-expo';
@@ -312,14 +313,20 @@ export function EditEventModal({ event, visible, onClose, onSave, onDelete }: Pr
   }
 
   function confirmDelete() {
-    Alert.alert(
-      'Delete Event',
-      'This will permanently remove the event and all sign-ups. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: handleDelete },
-      ],
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this event? This will remove all sign-ups and cannot be undone.')) {
+        handleDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Event',
+        'This will permanently remove the event and all sign-ups. This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: handleDelete },
+        ],
+      );
+    }
   }
 
   async function handleDelete() {
