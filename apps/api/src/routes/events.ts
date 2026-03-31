@@ -55,6 +55,14 @@ const CreateEventSchema = z.object({
   venue: VenueInputSchema,
 });
 
+const UpdateVenueSchema = z.object({
+  name: z.string().min(1).optional(),
+  address: z.string().min(1).optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().min(1).optional(),
+  state: z.string().min(1).optional(),
+});
+
 const UpdateEventSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
@@ -75,6 +83,7 @@ const UpdateEventSchema = z.object({
   coverImagePhotographer: z.string().nullable().optional(),
   coverImagePhotographerUrl: z.string().url().nullable().optional(),
   coverImageAttribution: z.string().nullable().optional(),
+  venue: UpdateVenueSchema.optional(),
 });
 
 const ListQuerySchema = z.object({
@@ -160,6 +169,20 @@ eventsRouter.patch('/:id', requireAuth, async (req, res, next) => {
     const input = UpdateEventSchema.parse(req.body);
     const event = await eventsService.updateEvent(eventId, userId as string, input);
     res.json(event);
+  } catch (err: any) {
+    if (err?.status === 404) return res.status(404).json({ error: err.message });
+    if (err?.status === 403) return res.status(403).json({ error: err.message });
+    next(err);
+  }
+});
+
+/** DELETE /events/:id — host-only: delete event */
+eventsRouter.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const { id: eventId } = req.params as { id: string };
+    const { userId } = getAuth(req);
+    await eventsService.deleteEvent(eventId, userId as string);
+    res.status(204).send();
   } catch (err: any) {
     if (err?.status === 404) return res.status(404).json({ error: err.message });
     if (err?.status === 403) return res.status(403).json({ error: err.message });

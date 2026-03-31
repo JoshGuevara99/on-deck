@@ -146,6 +146,10 @@ export const apiClient = {
       const data = await get<ApiEvent>(`/events/${eventId}`);
       return toMockEvent(data);
     },
+
+    async delete(eventId: string, token: string): Promise<void> {
+      return del(`/events/${eventId}`, token);
+    },
   },
 
   signups: {

@@ -555,6 +555,10 @@ export default function ProfileScreen() {
               setMySubmissions((prev) => prev.map((e) => e.id === updated.id ? updated : e));
               setEditingEvent(null);
             }}
+            onDelete={(deletedId) => {
+              setMySubmissions((prev) => prev.filter((e) => e.id !== deletedId));
+              setEditingEvent(null);
+            }}
           />
         )}
 

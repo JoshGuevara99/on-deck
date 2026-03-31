@@ -130,6 +130,13 @@ export async function createEvent(input: CreateEventInput, submittedBy?: string)
   return toApiEvent(event);
 }
 
+export async function deleteEvent(eventId: string, hostId: string) {
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) throw Object.assign(new Error('Event not found'), { status: 404 });
+  if (event.hostId !== hostId) throw Object.assign(new Error('Only the host can delete this event'), { status: 403 });
+  await prisma.event.delete({ where: { id: eventId } });
+}
+
 export async function updateEvent(
   eventId: string,
   hostId: string,
@@ -153,15 +160,38 @@ export async function updateEvent(
     coverImagePhotographer?: string | null;
     coverImagePhotographerUrl?: string | null;
     coverImageAttribution?: string | null;
+    venue?: { name?: string; address?: string; neighborhood?: string; city?: string; state?: string };
   }>
 ) {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw Object.assign(new Error('Event not found'), { status: 404 });
   if (event.hostId !== hostId) throw Object.assign(new Error('Only the host can edit this event'), { status: 403 });
 
+  // If venue fields are being updated, resolve the venue
+  let venueId = event.venueId;
+  let city = event.city;
+  let state = event.state;
+  if (input.venue) {
+    const currentVenue = await prisma.venue.findUnique({ where: { id: event.venueId } });
+    const merged = {
+      name: input.venue.name ?? currentVenue?.name ?? '',
+      address: input.venue.address ?? currentVenue?.address ?? '',
+      neighborhood: input.venue.neighborhood ?? currentVenue?.neighborhood ?? undefined,
+      city: input.venue.city ?? currentVenue?.city ?? '',
+      state: input.venue.state ?? currentVenue?.state ?? '',
+    };
+    const resolved = await findOrCreateVenue(merged);
+    venueId = resolved.id;
+    city = merged.city;
+    state = merged.state;
+  }
+
   const updated = await prisma.event.update({
     where: { id: eventId },
     data: {
+      venueId,
+      ...(city !== event.city && { city }),
+      ...(state !== event.state && { state }),
       ...(input.title !== undefined && { title: input.title }),
       ...(input.description !== undefined && { description: input.description }),
       ...(input.startsAt !== undefined && { startsAt: new Date(input.startsAt) }),

@@ -462,6 +462,7 @@ export default function EventDetailScreen() {
             visible={showEdit}
             onClose={() => setShowEdit(false)}
             onSave={(updated) => setEvent(updated)}
+            onDelete={() => goBack()}
           />
         </>
       )}
