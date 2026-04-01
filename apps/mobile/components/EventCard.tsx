@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -77,8 +78,13 @@ export function EventCard({ event }: Props) {
       )}
 
       <View style={styles.row}>
-        {/* Left accent bar — spans full card height */}
-        <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+        {/* Left accent bar — fades from full color at top to transparent at bottom */}
+        <LinearGradient
+          colors={[accentColor, accentColor + '00']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.accentBar}
+        />
 
         {/* Right column: badge row spans full width, then content + RSVP side by side */}
         <View style={styles.rightColumn}>
@@ -199,10 +205,10 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
       borderColor: colors.border,
       elevation: 6,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
+      shadowColor: '#7B3FE4',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
     },
     coverImage: {
       width: '100%',

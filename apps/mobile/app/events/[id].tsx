@@ -21,6 +21,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { EventTypeBadge } from '../../components/EventTypeBadge';
 import { GenreBadge } from '../../components/GenreBadge';
 import type { EventGenre } from '@on-deck/shared';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SignUpModal } from '../../components/SignUpModal';
 import { EditEventModal } from '../../components/EditEventModal';
 import { QRModal } from '../../components/QRModal';
@@ -177,7 +178,13 @@ export default function EventDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+      <LinearGradient
+        colors={['#1E1A3C', '#130F28']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView showsVerticalScrollIndicator={false} bounces>
         {/* Hero image */}
@@ -507,7 +514,7 @@ function DetailRow({
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
+    safe: { flex: 1 },
     centered: { alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
     emptyText: { fontSize: 17, fontWeight: '700', color: colors.textSecondary },
     backBtnCenter: { marginTop: 8 },
