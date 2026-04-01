@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
@@ -48,7 +48,7 @@ function GradientRoot({ children }: { children: React.ReactNode }) {
   return (
     <LinearGradient
       colors={colors.bgGradient as [string, string, ...string[]]}
-      style={StyleSheet.absoluteFill}
+      style={{ flex: 1 }}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
     >
