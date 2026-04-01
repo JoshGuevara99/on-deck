@@ -585,7 +585,7 @@ function FieldLabel({ text, colors }: { text: string; colors: ReturnType<typeof 
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
+    safe: { flex: 1, backgroundColor: 'transparent' },
     content: { padding: 20, paddingBottom: 48 },
     contentWide: { maxWidth: 560, alignSelf: 'center', width: '100%' },
     heading: {

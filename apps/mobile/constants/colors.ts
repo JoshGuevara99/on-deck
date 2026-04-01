@@ -1,6 +1,7 @@
 export const DARK_COLORS = {
-  // Backgrounds — deep purple-black, mysterious and atmospheric
-  bg: '#0C091A',
+  // Backgrounds
+  bg: '#050210',          // darkest stop — used for modals, sheets, overlays
+  bgGradient: ['#180E3C', '#0C0822', '#050210'] as string[],  // root app gradient (top → bottom)
   surface: '#130F28',
   surfaceHigh: '#1E1838',
 
@@ -24,6 +25,7 @@ export const DARK_COLORS = {
 export const LIGHT_COLORS = {
   // Backgrounds — warm cream/stone tones (no pure whites or cold grays)
   bg: '#FAF8F4',        // warm off-white, slight parchment
+  bgGradient: ['#FAF8F4', '#F5F0EA', '#EDE5D8'] as string[],
   surface: '#FFFDF8',   // warm white for cards and inputs
   surfaceHigh: '#F0EAE0', // warm stone for elevated/nested surfaces
 
@@ -47,6 +49,6 @@ export const LIGHT_COLORS = {
 // Backward-compat alias — still compiles anywhere that hasn't migrated to useTheme() yet.
 export const COLORS = DARK_COLORS;
 
-// Widen literal types to string so both DARK_COLORS and LIGHT_COLORS satisfy AppColors.
-export type AppColors = { [K in keyof typeof DARK_COLORS]: string };
+// Widen literal types so both palettes satisfy AppColors.
+export type AppColors = { [K in keyof typeof DARK_COLORS]: K extends 'bgGradient' ? string[] : string };
 export type ThemeMode = 'dark' | 'light';
