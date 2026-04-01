@@ -135,7 +135,7 @@ export default function EventDetailScreen() {
   async function handleShare() {
     if (!event) return;
     const appUrl = process.env.EXPO_PUBLIC_APP_URL ?? 'http://localhost:8081';
-    const url = `${appUrl}/events/${event.id}`;
+    const url = `${appUrl}/e/${event.id}`;
     const message = `${event.title} @ ${event.venue.name}`;
     try {
       if (Platform.OS === 'web') {
