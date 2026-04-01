@@ -80,8 +80,8 @@ export default function MapScreen() {
   }, [events, timeFilter]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>Nearby</Text>

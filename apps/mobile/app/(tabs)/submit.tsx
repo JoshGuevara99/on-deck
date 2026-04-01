@@ -443,7 +443,7 @@ function SuccessScreen({ event, onSubmitAnother, onGoToDiscover }: SuccessProps)
 
 function makeSuccessStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: 'transparent' },
+    safe: { flex: 1, backgroundColor: colors.bg },
     container: {
       flex: 1,
       alignItems: 'center',
@@ -567,7 +567,7 @@ function SignInGate() {
 
 function makeGateStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: 'transparent' },
+    safe: { flex: 1, backgroundColor: colors.bg },
     container: {
       flex: 1,
       alignItems: 'center',
@@ -1103,7 +1103,7 @@ function Field({
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: 'transparent' },
+    safe: { flex: 1, backgroundColor: colors.bg },
     content: { padding: 20, paddingBottom: 48 },
     contentWide: { maxWidth: 560, alignSelf: 'center', width: '100%' },
     heading: {

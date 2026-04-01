@@ -369,7 +369,7 @@ export default function DiscoverScreen() {
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: 'transparent' },
+    safe: { flex: 1, backgroundColor: colors.bg },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
     scrollContentWide: { maxWidth: 700, alignSelf: 'center', width: '100%' },
