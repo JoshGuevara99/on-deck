@@ -1,4 +1,4 @@
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Platform, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
@@ -15,6 +15,20 @@ interface Props {
 
 export function QRModal({ visible, url, title, onClose }: Props) {
   const { colors } = useTheme();
+
+  async function handleShareViaIG() {
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title, url }).catch(() => {});
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+      }
+    } else {
+      // Opens the native OS share sheet — Instagram appears here if installed.
+      // User selects Instagram → pastes the link into their story.
+      await Share.share({ message: `${title}\n${url}`, url }).catch(() => {});
+    }
+  }
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -41,10 +55,22 @@ export function QRModal({ visible, url, title, onClose }: Props) {
           {/* URL label */}
           <Text style={[styles.urlText, { color: colors.textMuted }]} numberOfLines={2}>{url}</Text>
 
+          {/* Share buttons */}
+          <View style={[styles.actions, { borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: colors.border }]}
+              onPress={handleShareViaIG}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="logo-instagram" size={18} color="#E1306C" />
+              <Text style={[styles.actionText, { color: colors.text }]}>Share via Instagram</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={[styles.hint, { color: colors.textMuted }]}>
             {Platform.OS === 'web'
-              ? 'Right-click the QR code to save it.'
-              : 'Screenshot this to share via IG story, print, or send directly.'}
+              ? 'Right-click the QR code to save it, or share the link above.'
+              : 'Screenshot the QR to print or post, or share the link directly.'}
           </Text>
         </View>
       </View>
@@ -95,6 +121,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
+  actions: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  actionText: { fontSize: 14, fontWeight: '600' },
   hint: {
     fontSize: 12,
     textAlign: 'center',
