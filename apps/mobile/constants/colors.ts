@@ -5,7 +5,7 @@ export const DARK_COLORS = {
   surfaceHigh: '#1E1838',
 
   // Accents — warm stage-light tones (unchanged)
-  gold: '#F0A030',   // open mic
+  gold: '#FFB800',   // open mic
   jam: '#E8553E',    // jam session
 
   // Text — slight purple warmth
