@@ -1,21 +1,21 @@
 export const DARK_COLORS = {
-  // Backgrounds — deep, atmospheric dark
-  bg: '#0A0A12',
-  surface: '#121220',
-  surfaceHigh: '#1A1A2C',
+  // Backgrounds — deep purple-black, mysterious and atmospheric
+  bg: '#0C091A',
+  surface: '#130F28',
+  surfaceHigh: '#1E1838',
 
-  // Accents — warm stage-light tones
+  // Accents — warm stage-light tones (unchanged)
   gold: '#F0A030',   // open mic
   jam: '#E8553E',    // jam session
 
-  // Text
-  text: '#EDEEF5',
-  textSecondary: '#8888AA',
-  textMuted: '#55556E',
+  // Text — slight purple warmth
+  text: '#EDE8FF',
+  textSecondary: '#9A8EC0',
+  textMuted: '#544870',
 
   // UI chrome
-  border: '#252540',
-  tabBar: '#0D0D1A',
+  border: '#2E2550',
+  tabBar: '#08060F',
 
   // Status
   live: '#4ADE80',
