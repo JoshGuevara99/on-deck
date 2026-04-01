@@ -23,6 +23,7 @@ import { GenreBadge } from '../../components/GenreBadge';
 import type { EventGenre } from '@on-deck/shared';
 import { SignUpModal } from '../../components/SignUpModal';
 import { EditEventModal } from '../../components/EditEventModal';
+import { QRModal } from '../../components/QRModal';
 import { formatDayLabel, formatTime } from '../../utils/date';
 import { apiClient } from '../../lib/api';
 import { useAttending } from '../../context/AttendingContext';
@@ -43,6 +44,7 @@ export default function EventDetailScreen() {
   const [signupCount, setSignupCount] = useState(0);
   const [showSignUp, setShowSignUp] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [lineup, setLineup] = useState<PublicSignup[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -333,6 +335,18 @@ export default function EventDetailScreen() {
               <Text style={[styles.shareBtnText, { color: colors.textSecondary }]}>Share Event</Text>
             </TouchableOpacity>
 
+            {/* Host: QR code */}
+            {isHost && (
+              <TouchableOpacity
+                style={[styles.shareBtn, { borderColor: colors.border }]}
+                onPress={() => setShowQR(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="qr-code-outline" size={18} color={colors.textSecondary} />
+                <Text style={[styles.shareBtnText, { color: colors.textSecondary }]}>QR Code</Text>
+              </TouchableOpacity>
+            )}
+
             {/* Host: manage roster */}
             {isHost && (
               <TouchableOpacity
@@ -463,6 +477,12 @@ export default function EventDetailScreen() {
             onClose={() => setShowEdit(false)}
             onSave={(updated) => setEvent(updated)}
             onDelete={() => goBack()}
+          />
+          <QRModal
+            visible={showQR}
+            url={`${process.env.EXPO_PUBLIC_APP_URL ?? 'http://localhost:8081'}/e/${event.id}`}
+            title={event.title}
+            onClose={() => setShowQR(false)}
           />
         </>
       )}
