@@ -995,6 +995,7 @@ export default function SubmitScreen() {
         selectedDate={form.specificDate}
         onSelectDate={(date) => { setField('specificDate', date); setErrors((p) => ({ ...p, date: undefined })); }}
         onClose={() => setShowCalendar(false)}
+        allowAnyFutureDate
       />
       <TimePickerModal
         visible={showTimePicker}

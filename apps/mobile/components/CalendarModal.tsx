@@ -18,6 +18,8 @@ interface Props {
   selectedDate: Date | null;
   onSelectDate: (date: Date) => void;
   onClose: () => void;
+  /** When true, any non-past date is selectable (ignores event dots). Used by submit form. */
+  allowAnyFutureDate?: boolean;
 }
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -41,7 +43,7 @@ function getCalendarDays(year: number, month: number): (Date | null)[] {
   return days;
 }
 
-export function CalendarModal({ visible, events, selectedDate, onSelectDate, onClose }: Props) {
+export function CalendarModal({ visible, events, selectedDate, onSelectDate, onClose, allowAnyFutureDate }: Props) {
   const { colors } = useTheme();
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -124,12 +126,12 @@ export function CalendarModal({ visible, events, selectedDate, onSelectDate, onC
                   key={date.toISOString()}
                   style={styles.cell}
                   onPress={() => {
-                    if (!isPast && withEvents) {
+                    if (!isPast && (allowAnyFutureDate || withEvents)) {
                       onSelectDate(date);
                       onClose();
                     }
                   }}
-                  activeOpacity={withEvents && !isPast ? 0.7 : 1}
+                  activeOpacity={(allowAnyFutureDate || withEvents) && !isPast ? 0.7 : 1}
                   accessibilityLabel={`${date.toLocaleDateString()}${withEvents ? ', has events' : ''}`}
                 >
                   <View style={[
@@ -157,12 +159,14 @@ export function CalendarModal({ visible, events, selectedDate, onSelectDate, onC
           </View>
 
           {/* Legend */}
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.dot, { position: 'relative', top: 0 }]} />
-              <Text style={styles.legendText}>Events on this day</Text>
+          {!allowAnyFutureDate && (
+            <View style={styles.legend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.dot, { position: 'relative', top: 0 }]} />
+                <Text style={styles.legendText}>Events on this day</Text>
+              </View>
             </View>
-          </View>
+          )}
         </SafeAreaView>
       </View>
     </Modal>
