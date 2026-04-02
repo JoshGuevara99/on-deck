@@ -45,8 +45,14 @@ unsplashRouter.get('/track', async (req, res, next) => {
     const url = (req.query.url as string | undefined)?.trim();
     if (!url) return res.status(400).json({ error: 'url is required' });
 
-    // SSRF guard — only allow Unsplash API URLs
-    if (!url.startsWith('https://api.unsplash.com/')) {
+    // SSRF guard — parse and validate hostname, not just prefix
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return res.status(400).json({ error: 'Invalid download URL' });
+    }
+    if (parsed.hostname !== 'api.unsplash.com' || parsed.protocol !== 'https:') {
       return res.status(400).json({ error: 'Invalid download URL' });
     }
 

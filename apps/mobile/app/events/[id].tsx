@@ -53,6 +53,7 @@ export default function EventDetailScreen() {
 
   const rsvped = event ? attendingIds.has(event.id) : false;
   const isHost = isSignedIn && event?.hostId === userId;
+  const isInLineup = isSignedIn && lineup.some((s) => s.user?.id === userId && s.status === 'SIGNED_UP');
   const accentColor = event?.type === 'OPEN_MIC' ? colors.gold : colors.jam;
   const slotsLeft = event?.maxSlots != null ? event.maxSlots - signupCount : null;
   const isFull = slotsLeft !== null && slotsLeft <= 0;
@@ -133,6 +134,28 @@ export default function EventDetailScreen() {
     setSignupCount((c) => c + 1);
     loadLineup();
     return result;
+  }
+
+  async function handleLeaveLineup() {
+    if (!event) return;
+    Alert.alert('Leave Lineup', 'Remove yourself from the lineup?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await getToken();
+            if (!token) throw new Error('Not authenticated');
+            await apiClient.signups.cancel(event.id, token);
+            setSignupCount((c) => Math.max(0, c - 1));
+            loadLineup();
+          } catch {
+            Alert.alert('Error', 'Could not remove you from the lineup.');
+          }
+        },
+      },
+    ]);
   }
 
   async function handleShare() {
@@ -318,7 +341,7 @@ export default function EventDetailScreen() {
             </TouchableOpacity>
 
             {/* Sign up to perform — open to everyone */}
-            {event.signupsEnabled && event.signUpMethod !== 'door' && (
+            {event.signupsEnabled && event.signUpMethod !== 'door' && !isInLineup && (
               <TouchableOpacity
                 style={[styles.signUpBtn, { backgroundColor: accentColor }, isFull && styles.btnDisabled]}
                 onPress={() => setShowSignUp(true)}
@@ -329,6 +352,18 @@ export default function EventDetailScreen() {
                 <Text style={[styles.signUpBtnText, isFull && { color: colors.textMuted }]}>
                   {isFull ? 'Full' : 'Sign Up to Perform'}
                 </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Leave lineup — only shown when signed up and not the host */}
+            {isInLineup && !isHost && (
+              <TouchableOpacity
+                style={[styles.shareBtn, { borderColor: colors.border }]}
+                onPress={handleLeaveLineup}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="exit-outline" size={18} color={colors.textMuted} />
+                <Text style={[styles.shareBtnText, { color: colors.textMuted }]}>Leave Lineup</Text>
               </TouchableOpacity>
             )}
 

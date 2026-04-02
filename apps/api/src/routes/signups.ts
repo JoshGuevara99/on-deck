@@ -7,11 +7,11 @@ import { requireAuth } from '../middleware/auth';
 
 export const signupsRouter = Router({ mergeParams: true });
 
-/** 5 signup attempts per IP per 10 minutes */
+/** 5 signup attempts per user (or IP for guests) per 10 minutes */
 const signupLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 5,
-  keyGenerator: (req) => req.ip ?? 'unknown',
+  keyGenerator: (req) => getAuth(req).userId ?? req.ip ?? 'unknown',
   message: { error: 'Too many sign-up attempts. Please wait a few minutes and try again.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -100,6 +100,14 @@ signupsRouter.post('/', signupLimiter, async (req, res, next) => {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return res.status(404).json({ error: 'Event not found' });
     if (!event.signupsEnabled) return res.status(400).json({ error: 'Sign-ups are not enabled for this event' });
+
+    // Prevent duplicate guest signups by email
+    if (isGuest && input.guestEmail) {
+      const existing = await prisma.eventSignup.findFirst({
+        where: { eventId, guestEmail: input.guestEmail.trim().toLowerCase(), status: { not: 'REMOVED' } },
+      });
+      if (existing) return res.status(409).json({ error: 'This email is already signed up for this event' });
+    }
 
     // Check max slots
     if (event.maxSlots !== null) {

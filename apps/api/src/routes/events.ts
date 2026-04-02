@@ -105,14 +105,32 @@ const ListQuerySchema = z.object({
   limit: z
     .string()
     .optional()
-    .transform((v) => (v ? Math.min(parseInt(v, 10), 100) : 50)),
+    .transform((v) => {
+      if (!v) return 50;
+      const n = parseInt(v, 10);
+      return isNaN(n) ? 50 : Math.min(n, 100);
+    }),
   offset: z
     .string()
     .optional()
-    .transform((v) => (v ? parseInt(v, 10) : 0)),
+    .transform((v) => {
+      if (!v) return 0;
+      const n = parseInt(v, 10);
+      return isNaN(n) ? 0 : n;
+    }),
 });
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
+
+/** 60 requests per minute per user/IP — protects against scraping/DoS */
+const listEventsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  keyGenerator: (req) => getAuth(req).userId ?? req.ip ?? 'unknown',
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /** 10 event submissions per user per hour */
 const createEventLimiter = rateLimit({
@@ -127,7 +145,7 @@ const createEventLimiter = rateLimit({
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 /** GET /events */
-eventsRouter.get('/', async (req, res, next) => {
+eventsRouter.get('/', listEventsLimiter, async (req, res, next) => {
   try {
     const filters = ListQuerySchema.parse(req.query);
     const events = await eventsService.listEvents(filters);
