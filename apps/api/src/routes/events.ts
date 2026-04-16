@@ -126,7 +126,7 @@ const ListQuerySchema = z.object({
 const listEventsLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
-  keyGenerator: (req) => getAuth(req).userId ?? ipKeyGenerator(req),
+  keyGenerator: (req) => getAuth(req).userId ?? ipKeyGenerator(req.ip ?? ''),
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -136,7 +136,7 @@ const listEventsLimiter = rateLimit({
 const createEventLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 10,
-  keyGenerator: (req) => getAuth(req).userId ?? ipKeyGenerator(req),
+  keyGenerator: (req) => getAuth(req).userId ?? ipKeyGenerator(req.ip ?? ''),
   message: { error: 'Too many events submitted. Please wait before submitting again.' },
   standardHeaders: true,
   legacyHeaders: false,
