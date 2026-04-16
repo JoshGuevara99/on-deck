@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getAuth } from '@clerk/express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
 
@@ -11,7 +11,7 @@ export const signupsRouter = Router({ mergeParams: true });
 const signupLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 5,
-  keyGenerator: (req) => getAuth(req).userId ?? req.ip ?? 'unknown',
+  keyGenerator: (req) => getAuth(req).userId ?? ipKeyGenerator(req),
   message: { error: 'Too many sign-up attempts. Please wait a few minutes and try again.' },
   standardHeaders: true,
   legacyHeaders: false,
