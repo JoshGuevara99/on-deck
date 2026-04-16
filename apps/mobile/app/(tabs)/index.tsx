@@ -25,7 +25,7 @@ import {
   isToday,
   isTomorrow,
   startOfDay,
-  endOfWeek,
+  endOfDaysFromNow,
   endOfMonth,
   formatSectionHeader,
 } from '../../utils/date';
@@ -78,9 +78,9 @@ function applyDateFilter(events: MockEvent[], filter: DateFilter): MockEvent[] {
     case 'tomorrow':
       return events.filter((e) => isTomorrow(e.startsAt));
     case 'week':
-      return events.filter((e) => e.startsAt <= endOfWeek(now));
+      return events.filter((e) => e.startsAt >= startOfDay(now) && e.startsAt <= endOfDaysFromNow(now, 6));
     case 'month':
-      return events.filter((e) => e.startsAt <= endOfMonth(now));
+      return events.filter((e) => e.startsAt >= startOfDay(now) && e.startsAt <= endOfMonth(now));
     case 'date':
       return events.filter((e) => isSameDay(e.startsAt, filter.date));
     default:

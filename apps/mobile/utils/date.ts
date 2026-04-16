@@ -33,6 +33,14 @@ export function endOfWeek(date: Date): Date {
   return d;
 }
 
+/** End of the day N days from `date` (inclusive rolling window). */
+export function endOfDaysFromNow(date: Date, n: number): Date {
+  const d = startOfDay(date);
+  d.setDate(d.getDate() + n);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 export function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
