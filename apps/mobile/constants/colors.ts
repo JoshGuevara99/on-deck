@@ -1,30 +1,52 @@
 export const DARK_COLORS = {
-  // Backgrounds — pure black, no tint
-  bg:           '#080808',
-  surface:      '#111111',
-  surfaceHigh:  '#1A1A1A',
+  // Backgrounds — deep purple-black, mysterious and atmospheric
+  bg: '#0C091A',
+  surface: '#130F28',
+  surfaceHigh: '#1E1838',
 
-  // Accents — neon red primary, amber secondary
-  gold: '#FF2D55',   // primary accent (neon red — "on air" light)
-  jam:  '#FF9500',   // secondary accent (amber glow)
+  // Accents — warm stage-light tones (unchanged)
+  gold: '#FFB800',   // open mic
+  jam: '#E8553E',    // jam session
 
-  // Text — clean white to dark gray
-  text:          '#FFFFFF',
-  textSecondary: '#A0A0A0',
-  textMuted:     '#3D3D3D',
+  // Text — slight purple warmth
+  text: '#EDE8FF',
+  textSecondary: '#9A8EC0',
+  textMuted: '#544870',
 
   // UI chrome
-  border:  '#1E1E1E',
-  tabBar:  '#080808',
+  border: '#2E2550',
+  tabBar: '#08060F',
 
   // Status
-  live: '#34C759',
+  live: '#4ADE80',
 } as const;
 
-// Light mode kept for backward-compat but unused (app is dark-only)
-export const LIGHT_COLORS = DARK_COLORS;
+export const LIGHT_COLORS = {
+  // Backgrounds — warm cream/stone tones (no pure whites or cold grays)
+  bg: '#FAF8F4',        // warm off-white, slight parchment
+  surface: '#FFFDF8',   // warm white for cards and inputs
+  surfaceHigh: '#F0EAE0', // warm stone for elevated/nested surfaces
 
+  // Accents — warm stage tones, tuned for legibility on light backgrounds
+  gold: '#B8741A',      // rich golden amber (open mic)
+  jam: '#BE3B28',       // terracotta red (jam session)
+
+  // Text — warm-tinted darks; no cold blue-grays
+  text: '#1A1410',         // warm near-black
+  textSecondary: '#574A3E', // warm medium brown — ~7:1 on bg ✓ WCAG AA
+  textMuted: '#7A6E62',    // warm taupe — ~4.5:1 on bg ✓ WCAG AA
+
+  // UI chrome — sandy, warm
+  border: '#E2D9CC',    // warm sand border
+  tabBar: '#FFFDF8',    // warm white tab bar
+
+  // Status
+  live: '#1A7A38',
+} as const;
+
+// Backward-compat alias — still compiles anywhere that hasn't migrated to useTheme() yet.
 export const COLORS = DARK_COLORS;
 
+// Widen literal types to string so both DARK_COLORS and LIGHT_COLORS satisfy AppColors.
 export type AppColors = { [K in keyof typeof DARK_COLORS]: string };
 export type ThemeMode = 'dark' | 'light';

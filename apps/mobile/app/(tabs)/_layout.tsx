@@ -14,14 +14,13 @@ export default function TabLayout() {
           backgroundColor: colors.tabBar,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 56,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 62,
+          paddingBottom: 10,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
-          letterSpacing: 0.5,
+          fontSize: 11,
+          fontWeight: '500',
         },
         headerShown: false,
       }}
@@ -29,36 +28,36 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'DISCOVER',
+          title: 'Discover',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass-outline" size={size} color={color} />
+            <Ionicons name="compass" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
-          title: 'MAP',
+          title: 'Map',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
+            <Ionicons name="map" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="submit"
         options={{
-          title: 'SUBMIT',
+          title: 'Submit',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle-outline" size={size} color={color} />
+            <Ionicons name="add-circle" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'PROFILE',
+          title: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="person-circle" size={size} color={color} />
           ),
         }}
       />
