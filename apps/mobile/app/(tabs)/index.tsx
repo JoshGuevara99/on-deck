@@ -65,7 +65,6 @@ const EVENT_FILTERS: FilterChipDef[] = [
   { kind: 'genre', label: 'Poetry',      value: 'Poetry' },
   { kind: 'genre', label: 'Jam Session', value: 'Jam Session' },
   { kind: 'type',  label: 'Workshop',    value: 'WORKSHOP' },
-  { kind: 'type',  label: 'Open Studio', value: 'OPEN_STUDIO' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -88,7 +87,6 @@ function applyDateFilter(events: MockEvent[], filter: DateFilter): MockEvent[] {
   }
 }
 
-/** Group events by calendar day, sorted ascending. */
 function groupByDay(events: MockEvent[]): { date: Date; events: MockEvent[] }[] {
   const map = new Map<string, { date: Date; events: MockEvent[] }>();
   for (const e of events) {
@@ -109,7 +107,7 @@ function dateFilterLabel(filter: DateFilter): string | null {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
-  const { colors, theme } = useTheme();
+  const { colors } = useTheme();
   const { events, loading, error } = useEvents();
   const { selectedCity, setCity } = useLocation();
   const { width } = useWindowDimensions();
@@ -137,40 +135,29 @@ export default function DiscoverScreen() {
       }
       return true;
     });
-
     return applyDateFilter(result, dateFilter);
   }, [events, activeFilter, searchQuery, dateFilter]);
 
   // ── Grouping ───────────────────────────────────────────────────────────────
 
-  // Single-day view: show flat list, no per-day headers needed (one header at top)
-  const isSingleDay = dateFilter.type === 'today' ||
-    dateFilter.type === 'tomorrow' ||
-    dateFilter.type === 'date';
-
+  const isSingleDay = dateFilter.type === 'today' || dateFilter.type === 'tomorrow' || dateFilter.type === 'date';
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
-
-  // ── Calendar active state ──────────────────────────────────────────────────
-
   const calendarActive = dateFilter.type === 'date';
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar
-        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.bg}
-      />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       {loading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={colors.gold} />
+          <ActivityIndicator size="small" color={colors.gold} />
         </View>
       )}
 
       {!loading && error && (
-        <View style={[styles.errorBanner, { backgroundColor: `${colors.jam}18`, borderColor: colors.jam }]}>
-          <Ionicons name="cloud-offline-outline" size={14} color={colors.jam} />
-          <Text style={[styles.errorBannerText, { color: colors.jam }]}>{error}</Text>
+        <View style={styles.errorBanner}>
+          <Ionicons name="cloud-offline-outline" size={12} color={colors.gold} />
+          <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
@@ -185,46 +172,23 @@ export default function DiscoverScreen() {
           <View>
             <Text style={styles.appName}>ON DECK</Text>
             <TouchableOpacity
-              style={styles.locationRow}
+              style={styles.cityRow}
               onPress={() => setShowCityPicker(true)}
               activeOpacity={0.7}
               accessibilityLabel="Change city"
             >
-              <Ionicons name="location-sharp" size={12} color={colors.gold} />
-              <Text style={styles.locationText}>
+              <Ionicons name="location-sharp" size={10} color={colors.gold} />
+              <Text style={styles.cityText}>
                 {selectedCity ? selectedCity.label : 'All Cities'}
               </Text>
-              <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
+              <Ionicons name="chevron-down" size={10} color={colors.textMuted} />
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.headerActions}>
-            {/* Calendar button */}
-            <TouchableOpacity
-              style={[styles.iconButton, calendarActive && styles.iconButtonActive]}
-              onPress={() => setShowCalendar(true)}
-              accessibilityLabel="Open calendar"
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={18}
-                color={calendarActive ? colors.gold : colors.text}
-              />
-              {calendarActive && (
-                <View style={styles.filterBadge}>
-                  <Text style={styles.filterBadgeText}>
-                    {(dateFilter as { date: Date }).date.getDate()}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
           </View>
         </View>
 
         {/* ── Search ──────────────────────────────────────────── */}
         <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={16} color={colors.textMuted} />
+          <Ionicons name="search-outline" size={14} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search events, venues, genres…"
@@ -238,12 +202,12 @@ export default function DiscoverScreen() {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              <Ionicons name="close-circle" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* ── Date filter chips ────────────────────────────────── */}
+        {/* ── Date chips ──────────────────────────────────────── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -251,33 +215,25 @@ export default function DiscoverScreen() {
           contentContainerStyle={styles.filterContent}
         >
           {DATE_CHIPS.map((chip) => {
-            const active =
-              calendarActive
-                ? false
-                : dateFilter.type === chip.value.type;
+            const active = calendarActive ? false : dateFilter.type === chip.value.type;
             return (
               <FilterChip
                 key={chip.label}
                 label={chip.label}
                 active={active}
-                onPress={() => {
-                  setDateFilter(chip.value);
-                }}
+                onPress={() => setDateFilter(chip.value)}
               />
             );
           })}
-
-          {/* Show selected calendar date as a chip */}
-          {calendarActive && (
-            <FilterChip
-              label={`📅 ${dateFilterLabel(dateFilter)}`}
-              active
-              onPress={() => setDateFilter({ type: 'all' })}
-            />
-          )}
+          {/* Calendar picker chip */}
+          <FilterChip
+            label={calendarActive ? `${dateFilterLabel(dateFilter)}` : 'Pick Date'}
+            active={calendarActive}
+            onPress={() => setShowCalendar(true)}
+          />
         </ScrollView>
 
-        {/* ── Event type chips ─────────────────────────────────── */}
+        {/* ── Type / genre chips ───────────────────────────────── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -303,34 +259,23 @@ export default function DiscoverScreen() {
         {grouped.length > 0 ? (
           grouped.map(({ date, events: dayEvents }) => (
             <View key={date.getTime()} style={styles.section}>
-              {!isSingleDay && (
-                <SectionHeader
-                  title={formatSectionHeader(date)}
-                  subtitle={`${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
-                />
-              )}
-              {isSingleDay && grouped.length === 1 && (
+              {(!isSingleDay || grouped.length > 1) && (
                 <SectionHeader
                   title={formatSectionHeader(date)}
                   subtitle={`${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`}
                 />
               )}
               {dayEvents.map((e) => (
-                <EventCard
-                  key={e.id}
-                  event={e}
-                />
+                <EventCard key={e.id} event={e} />
               ))}
             </View>
           ))
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={52} color={colors.textMuted} />
+            <Text style={styles.emptyGlyph}>—</Text>
             <Text style={styles.emptyTitle}>Nothing on deck</Text>
             <Text style={styles.emptySub}>
-              {searchQuery
-                ? `No results for "${searchQuery}"`
-                : 'Try a different date or filter.'}
+              {searchQuery ? `No results for "${searchQuery}"` : 'Try a different filter.'}
             </Text>
             {(searchQuery || dateFilter.type !== 'all' || activeFilter.kind !== 'all') && (
               <TouchableOpacity
@@ -339,9 +284,9 @@ export default function DiscoverScreen() {
                   setDateFilter({ type: 'all' });
                   setActiveFilter(EVENT_FILTERS[0]!);
                 }}
-                style={styles.clearAllBtn}
+                style={styles.clearBtn}
               >
-                <Text style={styles.clearAllText}>Clear filters</Text>
+                <Text style={styles.clearBtnText}>Clear filters</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -369,115 +314,11 @@ export default function DiscoverScreen() {
 
 function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
-    scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
+    safe:            { flex: 1, backgroundColor: colors.bg },
+    scroll:          { flex: 1 },
+    scrollContent:   { paddingHorizontal: 16, paddingBottom: 40 },
     scrollContentWide: { maxWidth: 700, alignSelf: 'center', width: '100%' },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      paddingTop: 20,
-      paddingBottom: 14,
-    },
-    appName: {
-      fontSize: 28,
-      fontWeight: '800',
-      letterSpacing: 4,
-      color: colors.gold,
-    },
-    locationRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      marginTop: 3,
-    },
-    locationText: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      fontWeight: '500',
-    },
-    headerActions: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 4,
-    },
-    iconButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    iconButtonActive: {
-      borderColor: colors.gold,
-      backgroundColor: `${colors.gold}18`,
-    },
-    filterBadge: {
-      position: 'absolute',
-      top: -4,
-      right: -4,
-      minWidth: 16,
-      height: 16,
-      borderRadius: 8,
-      backgroundColor: colors.gold,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 3,
-    },
-    filterBadgeText: {
-      fontSize: 9,
-      fontWeight: '800',
-      color: colors.bg,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginBottom: 12,
-    },
-    searchInput: { flex: 1, fontSize: 14, color: colors.text },
-    filterScroll: { marginBottom: 12 },
-    filterContent: { paddingRight: 16 },
-    section: { marginBottom: 8 },
-    emptyState: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 80,
-      gap: 12,
-    },
-    emptyTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: colors.textSecondary,
-    },
-    emptySub: {
-      fontSize: 14,
-      color: colors.textMuted,
-      textAlign: 'center',
-    },
-    clearAllBtn: {
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginTop: 4,
-    },
-    clearAllText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textSecondary,
-    },
+
     loadingOverlay: {
       position: 'absolute',
       top: 80,
@@ -494,9 +335,96 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 10,
+      borderRadius: 6,
       borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
     },
-    errorBannerText: { fontSize: 12, fontWeight: '500', flex: 1 },
+    errorText: { fontSize: 12, color: colors.textSecondary, flex: 1 },
+
+    // Header
+    header: {
+      paddingTop: 24,
+      paddingBottom: 16,
+    },
+    appName: {
+      fontSize: 34,
+      fontWeight: '900',
+      letterSpacing: 6,
+      color: colors.text,
+      lineHeight: 38,
+    },
+    cityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 6,
+    },
+    cityText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: '500',
+    },
+
+    // Search
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 14,
+    },
+    searchInput: { flex: 1, fontSize: 14, color: colors.text },
+
+    // Filters
+    filterScroll:  { marginBottom: 10 },
+    filterContent: { paddingRight: 16 },
+
+    // Events
+    section: { marginBottom: 4 },
+
+    // Empty state
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 100,
+      gap: 10,
+    },
+    emptyGlyph: {
+      fontSize: 32,
+      color: colors.textMuted,
+      fontWeight: '200',
+      letterSpacing: 4,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.textSecondary,
+      letterSpacing: 0.5,
+    },
+    emptySub: {
+      fontSize: 13,
+      color: colors.textMuted,
+      textAlign: 'center',
+    },
+    clearBtn: {
+      marginTop: 8,
+      paddingHorizontal: 20,
+      paddingVertical: 9,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    clearBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      letterSpacing: 0.3,
+    },
   });
 }
