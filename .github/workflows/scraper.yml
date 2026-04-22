@@ -2,7 +2,7 @@ name: Venue Scraper
 
 on:
   schedule:
-    - cron: '0 8 * * *'   # daily at 8am UTC
+    - cron: '0 8 * * 1'   # every Monday at 8am UTC
   workflow_dispatch:        # manual trigger from GitHub UI
 
 jobs:
