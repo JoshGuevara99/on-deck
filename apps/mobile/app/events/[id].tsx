@@ -21,7 +21,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { EventTypeBadge } from '../../components/EventTypeBadge';
 import { GenreBadge } from '../../components/GenreBadge';
 import type { EventGenre } from '@on-deck/shared';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SignUpModal } from '../../components/SignUpModal';
 import { EditEventModal } from '../../components/EditEventModal';
 import { QRModal } from '../../components/QRModal';
@@ -201,12 +200,7 @@ export default function EventDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <LinearGradient
-        colors={['#1E1A3C', '#130F28']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1E1A3C' }]} />
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView showsVerticalScrollIndicator={false} bounces>
