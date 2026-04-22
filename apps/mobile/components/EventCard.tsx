@@ -204,11 +204,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: colors.border,
-      elevation: 6,
-      shadowColor: '#7B3FE4',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 12,
     },
     coverImage: {
       width: '100%',
@@ -282,19 +277,9 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     rsvpBtnDefault: {
       backgroundColor: '#6366f1',
-      shadowColor: '#6366f1',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.45,
-      shadowRadius: 6,
-      elevation: 5,
     },
     rsvpBtnGoing: {
       backgroundColor: '#16a34a',
-      shadowColor: '#22c55e',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.45,
-      shadowRadius: 6,
-      elevation: 5,
     },
     rsvpBtnLabel: {
       fontSize: 10,
