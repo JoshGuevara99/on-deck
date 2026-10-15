@@ -45,6 +45,11 @@ export async function listEvents(filters: EventFilters = {}) {
     where.startsAt = {};
     if (filters.from) where.startsAt.gte = new Date(filters.from);
     if (filters.to) where.startsAt.lte = new Date(filters.to);
+  } else if (!filters.tonight && !filters.submittedBy && !filters.hostId) {
+    // Public feed: default to upcoming events so stale ones don't fill the page
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    where.startsAt = { gte: todayStart };
   }
 
   if (filters.free) {
